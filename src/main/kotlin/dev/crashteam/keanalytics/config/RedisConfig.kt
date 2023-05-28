@@ -1,0 +1,190 @@
+package dev.crashteam.keanalytics.config
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import mu.KotlinLogging
+import dev.crashteam.keanalytics.client.kazanexpress.model.ProductResponse
+import dev.crashteam.keanalytics.config.properties.RedisProperties
+import dev.crashteam.keanalytics.repository.redis.ApiKeyUserSessionInfo
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer
+import org.springframework.boot.autoconfigure.data.redis.LettuceClientConfigurationBuilderCustomizer
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.data.redis.RedisSystemException
+import org.springframework.data.redis.cache.RedisCacheConfiguration
+import org.springframework.data.redis.cache.RedisCacheManager.RedisCacheManagerBuilder
+import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration
+import org.springframework.data.redis.connection.stream.ObjectRecord
+import org.springframework.data.redis.connection.stream.ReadOffset
+import org.springframework.data.redis.core.ReactiveRedisTemplate
+import org.springframework.data.redis.serializer.*
+import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair.fromSerializer
+import org.springframework.data.redis.stream.StreamReceiver
+import java.nio.ByteBuffer
+import java.time.Duration
+
+private val log = KotlinLogging.logger {}
+
+@Configuration
+class RedisConfig(
+    private val objectMapper: ObjectMapper,
+    private val redisProperties: RedisProperties,
+) {
+
+    @Value("\${spring.redis.username}")
+    private lateinit var redisUsername: String
+
+    @Value("\${spring.redis.host}")
+    private lateinit var redisHost: String
+
+    @Value("\${spring.redis.port}")
+    private lateinit var redisPort: String
+
+    @Value("\${spring.redis.password}")
+    private lateinit var redisPassword: String
+
+
+    @Bean
+    fun reactiveRedisTemplate(
+        redisConnectionFactory: ReactiveRedisConnectionFactory
+    ): ReactiveRedisTemplate<String, Long> {
+        val jdkSerializationRedisSerializer = JdkSerializationRedisSerializer()
+        val stringRedisSerializer = StringRedisSerializer.UTF_8
+        val longToStringSerializer = GenericToStringSerializer(Long::class.java)
+        return ReactiveRedisTemplate(
+            redisConnectionFactory,
+            RedisSerializationContext.newSerializationContext<String, Long>(jdkSerializationRedisSerializer)
+                .key(stringRedisSerializer).value(longToStringSerializer).build()
+        )
+    }
+
+    @Bean
+    fun messageReactiveRedisTemplate(
+        redisConnectionFactory: ReactiveRedisConnectionFactory
+    ): ReactiveRedisTemplate<String, String> {
+        val serializationContext: RedisSerializationContext<String, String> = RedisSerializationContext
+            .newSerializationContext<String, String>(StringRedisSerializer())
+            .key(StringRedisSerializer())
+            .value(GenericToStringSerializer(String::class.java))
+            .build()
+        return ReactiveRedisTemplate(redisConnectionFactory, serializationContext);
+    }
+
+    @Bean
+    fun apiKeySessionRedisTemplate(
+        redisConnectionFactory: ReactiveRedisConnectionFactory
+    ): ReactiveRedisTemplate<String, ApiKeyUserSessionInfo> {
+        val jdkSerializationRedisSerializer = JdkSerializationRedisSerializer()
+        val stringRedisSerializer = StringRedisSerializer.UTF_8
+        val jackson2JsonRedisSerializer = Jackson2JsonRedisSerializer(ApiKeyUserSessionInfo::class.java)
+        return ReactiveRedisTemplate(
+            redisConnectionFactory,
+            RedisSerializationContext.newSerializationContext<String, ApiKeyUserSessionInfo>(
+                jdkSerializationRedisSerializer
+            ).key(stringRedisSerializer).value(jackson2JsonRedisSerializer).build()
+        )
+    }
+
+    @Bean
+    fun redisCacheManagerBuilderCustomizer(): RedisCacheManagerBuilderCustomizer {
+        return RedisCacheManagerBuilderCustomizer { builder: RedisCacheManagerBuilder ->
+            val configurationMap: MutableMap<String, RedisCacheConfiguration> = HashMap()
+            configurationMap[KE_CLIENT_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
+                .serializeValuesWith(fromSerializer(object : RedisSerializer<Any> {
+                    override fun serialize(t: Any?): ByteArray {
+                        return objectMapper.writeValueAsBytes(t)
+                    }
+
+                    override fun deserialize(bytes: ByteArray?): Any? {
+                        return if (bytes != null) {
+                            objectMapper.readValue<ProductResponse>(bytes)
+                        } else null
+                    }
+
+                })).entryTtl(Duration.ofSeconds(120))
+            builder.withInitialCacheConfigurations(configurationMap)
+        }
+    }
+
+    @Bean
+    fun builderCustomizer(): LettuceClientConfigurationBuilderCustomizer {
+        return LettuceClientConfigurationBuilderCustomizer { builder: LettuceClientConfiguration.LettuceClientConfigurationBuilder ->
+            builder.useSsl().disablePeerVerification()
+        }
+    }
+
+    @Bean
+    fun keProductSubscription(
+        redisConnectionFactory: ReactiveRedisConnectionFactory
+    ): StreamReceiver<String, ObjectRecord<String, String>> {
+        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
+            .targetType(String::class.java).build()
+        try {
+//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
+//                ByteBuffer.wrap(redisProperties.stream.keProductInfo.streamName.toByteArray()),
+//                redisProperties.stream.keProductInfo.consumerGroup
+//            )?.subscribe()
+            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
+                ByteBuffer.wrap(redisProperties.stream.keProductInfo.streamName.toByteArray()),
+                redisProperties.stream.keProductInfo.consumerGroup,
+                ReadOffset.from("0-0"),
+                true
+            ).subscribe()
+        } catch (e: RedisSystemException) {
+            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.keProductInfo.consumerGroup}" }
+        }
+        return StreamReceiver.create(redisConnectionFactory, options)
+    }
+
+    @Bean
+    fun keProductPositionSubscription(
+        redisConnectionFactory: ReactiveRedisConnectionFactory
+    ): StreamReceiver<String, ObjectRecord<String, String>> {
+        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
+            .targetType(String::class.java).build()
+        try {
+//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
+//                ByteBuffer.wrap(redisProperties.stream.keProductPosition.streamName.toByteArray()),
+//                redisProperties.stream.keProductPosition.consumerGroup
+//            )?.subscribe()
+            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
+                ByteBuffer.wrap(redisProperties.stream.keProductPosition.streamName.toByteArray()),
+                redisProperties.stream.keProductPosition.consumerGroup,
+                ReadOffset.from("0-0"),
+                true
+            ).subscribe()
+        } catch (e: RedisSystemException) {
+            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.keProductPosition.consumerGroup}" }
+        }
+        return StreamReceiver.create(redisConnectionFactory, options)
+    }
+
+    @Bean
+    fun keCategorySubscription(
+        redisConnectionFactory: ReactiveRedisConnectionFactory
+    ): StreamReceiver<String, ObjectRecord<String, String>> {
+        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
+            .targetType(String::class.java).build()
+        try {
+//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
+//                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
+//                redisProperties.stream.keCategoryInfo.consumerGroup
+//            )?.subscribe()
+            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
+                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
+                redisProperties.stream.keCategoryInfo.consumerGroup,
+                ReadOffset.from("0-0"),
+                true
+            ).subscribe()
+        } catch (e: RedisSystemException) {
+            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.keCategoryInfo.consumerGroup}" }
+        }
+        return StreamReceiver.create(redisConnectionFactory, options)
+    }
+
+    companion object {
+        const val KE_CLIENT_CACHE_NAME = "ke-products-info"
+    }
+}

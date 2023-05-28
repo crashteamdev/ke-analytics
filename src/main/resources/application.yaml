@@ -1,0 +1,106 @@
+server:
+  port: ${server.port}
+  error:
+    include-stacktrace: ALWAYS
+
+management:
+  security:
+    flag: false
+  server:
+    port: ${management.port}
+  metrics:
+    prometheus:
+      enabled: true
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+spring:
+  application:
+    name: ${project.name}
+    output:
+      ansi:
+        enabled: always
+  main:
+    allow-bean-definition-overriding: true
+  data:
+    mongodb:
+      uri: mongodb+srv://${MONGO_USER:kazanex}:${MONGO_PASSWORD:my5053strongPassword}@${MONGO_HOST:77.37.140.106}/${MONGO_DATABASE:kazanex}?authSource=admin&replicaSet=${MONGO_REPLICASET:marketdb}&tls=true&maxPoolSize=200
+  redis:
+    host: marketdb-redis-do-user-9153772-0.b.db.ondigitalocean.com
+    port: 25061
+    username: default
+    password: password
+    ssl: false
+  cache:
+    cache-names:
+      - ke-products-info
+    redis:
+      time-to-live: 60000
+  quartz:
+    properties:
+      org.quartz.scheduler.instanceName: KazanExpressorMasterScheduler
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.scheduler.skipUpdateCheck: true
+      org.quartz.scheduler.threadsInheritContextClassLoaderOfInitializer: true
+      org.quartz.threadPool.threadCount: 30
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.misfireThreshold: 30000
+      org.quartz.jobStore.class: com.novemberain.quartz.mongodb.MongoDBJobStore
+      org.quartz.jobStore.mongoUri: ${spring.data.mongodb.uri}
+      org.quartz.jobStore.dbName: kazanex
+      org.quartz.jobStore.collectionPrefix: qrtz
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com
+          issuer-uri: https://securetoken.google.com/${FIREBASE_APP_NAME:marketdb-gloom}
+
+kazanex:
+  scheduleEnabled: false
+  groupCron: '0 0/10 * * * ?'
+  productCron: '0 0 0/3 * * ?'
+  productCronV2: '0 0 0,21 ? * * *'
+  paymentCron: '0/10 * * * * ?'
+  sellerCron: '0 0 0/3 * * ?'
+  reportCleanUpCron: '0 0 0/1 * * ?'
+  reportGenerateCron: '0/3 * * * * ?'
+  productPositionCron: '0 0 3 ? * * *'
+  pendingMessageCron: '0 0/5 0 ? * * *'
+  throttlingMs: 1000
+  reportLiveTimeHours: 24
+
+service:
+  proxy:
+    url: http://localhost:8022
+
+redis:
+  stream:
+    max-batch-size: 350
+    batch-buffer-duration-ms: 2000
+    batch-parallel-count: 5
+    ke-product-info:
+      streamName: ke-product-stream
+      consumerGroup: ke-analytics-product-group
+      consumerName: ke-analytics-product-consumer
+    ke-product-position:
+      streamName: ke-position-stream
+      consumerGroup: ke-analytics-product-position-group
+      consumerName: ke-analytics-position-consumer
+    ke-category-info:
+      streamName: ke-category-stream
+      consumerGroup: ke-analytics-category-group
+      consumerName: ke-analytics-category-consumer
+
+youkassa:
+  shopId: 819837
+  key: 'test_6qE96u7LbOog1NcjX9AocDz8sviH_FIhQ25sO2Jz0Qk'
+
