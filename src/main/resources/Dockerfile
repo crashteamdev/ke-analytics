@@ -14,5 +14,5 @@ COPY ${CERT_DIR} ./cert
 ENTRYPOINT ["java", "-server", "-Xms256M", "-Xss256k",\
             "-XX:+UnlockDiagnosticVMOptions", "-XX:+UseContainerSupport",\
             "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=dump.hprof", "-Djava.security.egd=/dev/zrandom",\
-            "-Djavax.net.ssl.trustStore=/root/cert/marketdb.jks", "-Djavax.net.ssl.trustStorePassword=StrongPasswd",\
-            "-jar", "/root/ke-analytics.jar"]
+            "-Djavax.net.ssl.trustStore=/opt/cert/marketdb.jks", "-Djavax.net.ssl.trustStorePassword=StrongPasswd",\
+            "-jar", "/opt/ke-analytics.jar"]
