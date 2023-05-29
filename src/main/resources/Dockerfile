@@ -6,8 +6,8 @@ ENV LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2
 EXPOSE 8080
 
 WORKDIR root/
-ARG JAR_FILE=target/ke-analytics-*.jar
-ARG CERT_DIR=target/classes/cert
+ARG JAR_FILE=ke-analytics-0.0.1.jar
+ARG CERT_DIR=classes/cert
 COPY ${JAR_FILE} ./app.jar
 COPY ${CERT_DIR} ./cert
 
