@@ -32,7 +32,7 @@ spring:
     allow-bean-definition-overriding: true
   data:
     mongodb:
-      uri: mongodb://${MONGO_USER:kazanex}:${MONGO_PASSWORD:my5053strongPassword}@${MONGO_HOST:77.37.140.106}/${MONGO_DATABASE:kazanex}?authSource=admin&replicaSet=${MONGO_REPLICASET:marketdb}&tls=true&maxPoolSize=200
+      uri: mongodb://${MONGO_USER:kazanex}:${MONGO_PASSWORD:my5053strongPassword}@${MONGO_HOST:77.37.140.106}/${MONGO_DATABASE:kazanex}?authSource=kazanex&replicaSet=${MONGO_REPLICASET:marketdb}&tls=true&maxPoolSize=200
   redis:
     host: marketdb-redis-do-user-9153772-0.b.db.ondigitalocean.com
     port: 25061
