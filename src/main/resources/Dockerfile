@@ -5,7 +5,7 @@ RUN apt update && \
 ENV LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2
 EXPOSE 8080
 
-WORKDIR root/
+WORKDIR opt/
 ARG JAR_FILE=ke-analytics-0.0.1.jar
 ARG CERT_DIR=classes/cert
 COPY ${JAR_FILE} ./ke-analytics.jar
