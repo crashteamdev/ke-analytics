@@ -8,6 +8,7 @@ import dev.crashteam.keanalytics.config.properties.RedisProperties
 import dev.crashteam.keanalytics.repository.redis.ApiKeyUserSessionInfo
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.autoconfigure.data.redis.LettuceClientConfigurationBuilderCustomizer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -32,19 +33,6 @@ class RedisConfig(
     private val objectMapper: ObjectMapper,
     private val redisProperties: RedisProperties,
 ) {
-
-    @Value("\${spring.redis.username}")
-    private lateinit var redisUsername: String
-
-    @Value("\${spring.redis.host}")
-    private lateinit var redisHost: String
-
-    @Value("\${spring.redis.port}")
-    private lateinit var redisPort: String
-
-    @Value("\${spring.redis.password}")
-    private lateinit var redisPassword: String
-
 
     @Bean
     fun reactiveRedisTemplate(
@@ -109,6 +97,7 @@ class RedisConfig(
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "spring.redis", value = ["ssl"], havingValue = "true")
     fun builderCustomizer(): LettuceClientConfigurationBuilderCustomizer {
         return LettuceClientConfigurationBuilderCustomizer { builder: LettuceClientConfiguration.LettuceClientConfigurationBuilder ->
             builder.useSsl().disablePeerVerification()
