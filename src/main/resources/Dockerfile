@@ -5,14 +5,15 @@ RUN apt update && \
 ENV LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so.2
 EXPOSE 8080
 
-WORKDIR opt/
 ARG JAR_FILE=ke-analytics-0.0.1.jar
 ARG CERT_DIR=classes/cert
-COPY ${JAR_FILE} ./ke-analytics.jar
-COPY ${CERT_DIR} ./cert
+COPY ${JAR_FILE} /opt/ke-analytics/ke-analytics.jar
+COPY ${CERT_DIR} /opt/ke-analytics/cert
 
 ENTRYPOINT ["java", "-server", "-Xms256M", "-Xss256k",\
             "-XX:+UnlockDiagnosticVMOptions", "-XX:+UseContainerSupport",\
             "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=dump.hprof", "-Djava.security.egd=/dev/zrandom",\
-            "-Djavax.net.ssl.trustStore=/opt/cert/marketdb.jks", "-Djavax.net.ssl.trustStorePassword=StrongPasswd",\
-            "-jar", "/opt/ke-analytics.jar"]
+            "-Djavax.net.ssl.trustStore=/opt/ke-analytics/cert/marketdb.jks", "-Djavax.net.ssl.trustStorePassword=StrongPasswd",\
+            "-jar", "/opt/ke-analytics/ke-analytics.jar"]
+
+WORKDIR /opt/ke-analytics
