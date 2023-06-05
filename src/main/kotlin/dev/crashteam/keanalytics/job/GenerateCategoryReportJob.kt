@@ -91,14 +91,13 @@ class GenerateCategoryReportJob : Job {
                         jobId,
                         generatedReport
                     )
+                } else {
+                    throw IllegalStateException("Unknown report version: $version")
                 }
             } catch (e: Exception) {
                 log.error(e) { "Failed to generate report. categoryPublicId=$categoryPublicId; interval=$interval; jobId=$jobId" }
                 val reportRepository = applicationContext.getBean(ReportRepository::class.java)
                 reportRepository.updateReportStatus(jobId, ReportStatus.FAILED).awaitSingleOrNull()
-                if (userId != null) {
-                    reportService.decrementCategoryUserReportCount(userId)
-                }
             } finally {
                 tempFilePath.deleteIfExists()
             }

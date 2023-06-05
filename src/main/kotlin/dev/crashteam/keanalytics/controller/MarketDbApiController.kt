@@ -358,7 +358,6 @@ class MarketDbApiController(
                 version = ReportVersion.V1
             )
         ).awaitSingleOrNull()
-        reportService.incrementShopUserReportCount(user.userId)
 
         return ResponseEntity.ok().body(ReportJob(jobId))
     }
@@ -423,7 +422,6 @@ class MarketDbApiController(
                 version = ReportVersion.V1
             )
         ).awaitSingleOrNull()
-        reportService.incrementCategoryUserReportCount(user.userId)
 
         return ResponseEntity.ok().body(ReportJob(jobId))
     }

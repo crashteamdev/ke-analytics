@@ -63,14 +63,13 @@ class GenerateSellerReportJob : Job {
                 } else if (version == ReportVersion.V1) {
                     val generatedReport = reportFileService.generateReportBySeller(sellerLink, fromTime, toTime)
                     reportService.saveSellerReport(sellerLink, interval, jobId, generatedReport)
+                } else {
+                    throw IllegalStateException("Unknown report version: $version")
                 }
             } catch (e: Exception) {
                 log.error(e) { "Failed to generate report. seller=$sellerLink; interval=$interval; jobId=$jobId" }
                 val reportRepository = applicationContext.getBean(ReportRepository::class.java)
                 reportRepository.updateReportStatus(jobId, ReportStatus.FAILED).awaitSingleOrNull()
-                if (userId != null) {
-                    reportService.decrementShopUserReportCount(userId)
-                }
             } finally {
                 tempFilePath.deleteIfExists()
             }

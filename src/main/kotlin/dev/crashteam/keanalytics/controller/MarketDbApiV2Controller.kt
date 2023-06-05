@@ -199,7 +199,6 @@ class MarketDbApiV2Controller(
                                     version = ReportVersion.V2
                                 )
                             ).flatMap {
-                                reportService.incrementShopUserReportCountV2(userDocument.userId).subscribe()
                                 ResponseEntity.ok().body(GetReportBySeller200Response().apply {
                                     this.jobId = UUID.fromString(jobId)
                                 }).toMono()
@@ -291,7 +290,6 @@ class MarketDbApiV2Controller(
                                         version = ReportVersion.V2
                                     )
                                 ).flatMap {
-                                    reportService.incrementCategoryUserReportCountV2(userDocument.userId).subscribe()
                                     ResponseEntity.ok().body(GetReportBySeller200Response().apply {
                                         this.jobId = UUID.fromString(jobId)
                                     }).toMono()
