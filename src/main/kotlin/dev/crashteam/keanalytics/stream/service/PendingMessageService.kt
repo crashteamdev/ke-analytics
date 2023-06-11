@@ -66,7 +66,7 @@ class PendingMessageService(
         consumerGroupName: String,
         consumerName: String,
         listener: BatchStreamListener<String, ObjectRecord<String, String>>
-    ) = runBlocking {
+    ) {
         messageReactiveRedisTemplate.opsForStream<String, String>().pending(
             streamKey,
             consumerGroupName,
