@@ -39,12 +39,6 @@ class KeProductItemStreamListener(
             objectMapper.readValue<KeProductItemStreamRecord>(it.value)
         }
         log.info { "Consumer product records count ${keProductItemStreamRecords.size}" }
-        for (keProductItemStreamRecord in keProductItemStreamRecords) {
-            log.info { "Process productId=${keProductItemStreamRecord.productId};" +
-                    " skuListCount=${keProductItemStreamRecord.skuList.size}" }
-
-        }
-
         runBlocking {
             // OLD schema
             val oldSaveProductTask = async {
