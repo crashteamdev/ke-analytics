@@ -20,6 +20,7 @@ import org.springframework.retry.support.RetryTemplate
 import org.springframework.stereotype.Component
 import reactor.core.scheduler.Schedulers
 import reactor.util.retry.Retry
+import java.time.Duration
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import javax.annotation.PostConstruct
@@ -120,10 +121,11 @@ class MessageScheduler(
             StreamOffset.create(streamKey, ReadOffset.lastConsumed())
         ).bufferTimeout(
             redisProperties.stream.maxBatchSize,
-            java.time.Duration.ofMillis(redisProperties.stream.batchBufferDurationMs)
+            Duration.ofMillis(redisProperties.stream.batchBufferDurationMs)
         ).onBackpressureBuffer()
-            .parallel(redisProperties.stream.batchParallelCount)
-            .runOn(Schedulers.newParallel("redis-stream-batch", redisProperties.stream.batchParallelCount))
+//            .parallel(redisProperties.stream.batchParallelCount)
+//            .runOn(Schedulers.newParallel("redis-stream-batch", redisProperties.stream.batchParallelCount))
+            .publishOn(Schedulers.boundedElastic())
             .doOnNext { records ->
                 listener.onMessage(records)
                 val recordIds = records.map { it.id }
