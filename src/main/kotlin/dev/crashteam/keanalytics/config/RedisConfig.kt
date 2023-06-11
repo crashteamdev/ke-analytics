@@ -111,10 +111,10 @@ class RedisConfig(
         val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
             .targetType(String::class.java).build()
         try {
-            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
-                ByteBuffer.wrap(redisProperties.stream.keProductInfo.streamName.toByteArray()),
-                redisProperties.stream.keProductInfo.consumerGroup
-            )?.subscribe()
+//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
+//                ByteBuffer.wrap(redisProperties.stream.keProductInfo.streamName.toByteArray()),
+//                redisProperties.stream.keProductInfo.consumerGroup
+//            )?.subscribe()
             redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
                 ByteBuffer.wrap(redisProperties.stream.keProductInfo.streamName.toByteArray()),
                 redisProperties.stream.keProductInfo.consumerGroup,
@@ -134,10 +134,10 @@ class RedisConfig(
         val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
             .targetType(String::class.java).build()
         try {
-            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
-                ByteBuffer.wrap(redisProperties.stream.keProductPosition.streamName.toByteArray()),
-                redisProperties.stream.keProductPosition.consumerGroup
-            )?.subscribe()
+//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
+//                ByteBuffer.wrap(redisProperties.stream.keProductPosition.streamName.toByteArray()),
+//                redisProperties.stream.keProductPosition.consumerGroup
+//            )?.subscribe()
             redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
                 ByteBuffer.wrap(redisProperties.stream.keProductPosition.streamName.toByteArray()),
                 redisProperties.stream.keProductPosition.consumerGroup,
@@ -157,10 +157,10 @@ class RedisConfig(
         val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
             .targetType(String::class.java).build()
         try {
-            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
-                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
-                redisProperties.stream.keCategoryInfo.consumerGroup
-            )?.subscribe()
+//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
+//                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
+//                redisProperties.stream.keCategoryInfo.consumerGroup
+//            )?.subscribe()
             redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
                 ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
                 redisProperties.stream.keCategoryInfo.consumerGroup,

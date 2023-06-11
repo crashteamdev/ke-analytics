@@ -118,12 +118,17 @@ class MessageScheduler(
         receiver.receive(
             consumer,
             StreamOffset.create(streamKey, ReadOffset.lastConsumed())
-        ).publishOn(Schedulers.boundedElastic())
+        ).bufferTimeout(
+            redisProperties.stream.maxBatchSize,
+            java.time.Duration.ofMillis(redisProperties.stream.batchBufferDurationMs)
+        ).onBackpressureBuffer()
+            .parallel(redisProperties.stream.batchParallelCount)
+            .runOn(Schedulers.newParallel("redis-stream-batch", redisProperties.stream.batchParallelCount))
             .doOnNext { records ->
-                listener.onMessage(listOf(records))
-                //val recordIds = records.map { it.id }
+                listener.onMessage(records)
+                val recordIds = records.map { it.id }
                 messageReactiveRedisTemplate.opsForStream<String, String>()
-                    .acknowledge(streamKey, consumerGroup, records.id).subscribe()
+                    .acknowledge(streamKey, consumerGroup, *recordIds.toTypedArray()).subscribe()
             }.doOnError {
                 log.warn(it) { "Error during consumer task" }
             }.subscribe()
