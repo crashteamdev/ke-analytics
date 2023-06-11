@@ -1,15 +1,15 @@
 package dev.crashteam.keanalytics.stream.scheduler
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import dev.crashteam.keanalytics.config.properties.RedisProperties
 import dev.crashteam.keanalytics.stream.listener.BatchStreamListener
 import dev.crashteam.keanalytics.stream.listener.KeCategoryStreamListener
 import dev.crashteam.keanalytics.stream.listener.KeProductItemStreamListener
 import dev.crashteam.keanalytics.stream.listener.KeProductPositionStreamListener
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
-import mu.KotlinLogging
 import org.springframework.data.redis.connection.stream.Consumer
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.ReadOffset
@@ -49,44 +49,41 @@ class MessageScheduler(
         executor.submit {
             retryTemplate.execute<Unit, Exception> {
                 runBlocking {
-                    while (true) {
-                        log.info { "Start receiving stream messages" }
-                        try {
-                            val createPositionConsumerTask = async {
-                                createConsumer(
-                                    redisProperties.stream.keProductPosition.streamName,
-                                    redisProperties.stream.keProductPosition.consumerGroup,
-                                    redisProperties.stream.keProductPosition.consumerName,
-                                    keProductPositionSubscription,
-                                    keProductPositionStreamListener
-                                )
-                            }
-                            val createProductConsumerTask = async {
-                                creatBatchConsumer(
-                                    redisProperties.stream.keProductInfo.streamName,
-                                    redisProperties.stream.keProductInfo.consumerGroup,
-                                    redisProperties.stream.keProductInfo.consumerName,
-                                    keProductSubscription,
-                                    keProductStreamListener
-                                )
-                            }
-                            val createCategoryConsumerTask = async {
-                                createConsumer(
-                                    redisProperties.stream.keCategoryInfo.streamName,
-                                    redisProperties.stream.keCategoryInfo.consumerGroup,
-                                    redisProperties.stream.keCategoryInfo.consumerName,
-                                    keCategorySubscription,
-                                    keCategoryStreamListener
-                                )
-                            }
-                            awaitAll(createPositionConsumerTask, createProductConsumerTask, createCategoryConsumerTask)
-                        } catch (e: Exception) {
-                            log.error(e) { "Exception during creating consumers" }
-                            throw e
+                    log.info { "Start receiving stream messages" }
+                    try {
+                        val createPositionConsumerTask = async {
+                            createConsumer(
+                                redisProperties.stream.keProductPosition.streamName,
+                                redisProperties.stream.keProductPosition.consumerGroup,
+                                redisProperties.stream.keProductPosition.consumerName,
+                                keProductPositionSubscription,
+                                keProductPositionStreamListener
+                            )
                         }
-                        log.info { "End of receiving stream messages" }
-                        delay(5.minutes)
+                        val createProductConsumerTask = async {
+                            creatBatchConsumer(
+                                redisProperties.stream.keProductInfo.streamName,
+                                redisProperties.stream.keProductInfo.consumerGroup,
+                                redisProperties.stream.keProductInfo.consumerName,
+                                keProductSubscription,
+                                keProductStreamListener
+                            )
+                        }
+                        val createCategoryConsumerTask = async {
+                            createConsumer(
+                                redisProperties.stream.keCategoryInfo.streamName,
+                                redisProperties.stream.keCategoryInfo.consumerGroup,
+                                redisProperties.stream.keCategoryInfo.consumerName,
+                                keCategorySubscription,
+                                keCategoryStreamListener
+                            )
+                        }
+                        awaitAll(createPositionConsumerTask, createProductConsumerTask, createCategoryConsumerTask)
+                    } catch (e: Exception) {
+                        log.error(e) { "Exception during creating consumers" }
+                        throw e
                     }
+                    log.info { "End of receiving stream messages" }
                 }
             }
         }
