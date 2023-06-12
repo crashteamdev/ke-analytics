@@ -19,7 +19,6 @@ import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.retry.support.RetryTemplate
 import org.springframework.stereotype.Component
 import reactor.core.scheduler.Schedulers
-import reactor.kotlin.core.publisher.toMono
 import reactor.util.retry.Retry
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -95,13 +94,11 @@ class MessageScheduler(
         listener: StreamListener<String, ObjectRecord<String, String>>,
     ) {
         val consumer = Consumer.from(consumerGroup, consumerName)
-        receiver.receive(
+        receiver.receiveAutoAck(
             consumer,
             StreamOffset.create(streamKey, ReadOffset.lastConsumed())
         ).publishOn(Schedulers.boundedElastic()).doOnNext {
             listener.onMessage(it)
-        }.flatMap {
-            messageReactiveRedisTemplate.opsForStream<String, String>().acknowledge(streamKey, consumerGroup, it.id)
         }.retryWhen(
             Retry.fixedDelay(MAX_RETRY_ATTEMPTS, java.time.Duration.ofSeconds(RETRY_DURATION_SEC)).doBeforeRetry {
                 log.warn(it.failure()) { "Error during consumer task" }
@@ -116,7 +113,7 @@ class MessageScheduler(
         listener: BatchStreamListener<String, ObjectRecord<String, String>>,
     ) {
         val consumer = Consumer.from(consumerGroup, consumerName)
-        receiver.receive(
+        receiver.receiveAutoAck(
             consumer,
             StreamOffset.create(streamKey, ReadOffset.lastConsumed())
         ).bufferTimeout(
@@ -125,12 +122,10 @@ class MessageScheduler(
         ).onBackpressureBuffer()
             .parallel(redisProperties.stream.batchParallelCount)
             .runOn(Schedulers.newParallel("redis-stream-batch", redisProperties.stream.batchParallelCount))
-            .flatMap { records ->
-                listener.onMessage(records)
-                records.map { it.id }.toMono()
-            }.flatMap { recordIds ->
-                messageReactiveRedisTemplate.opsForStream<String, String>()
-                    .acknowledge(streamKey, consumerGroup, *recordIds.toTypedArray())
+            .doOnNext { records ->
+                runBlocking {
+                    listener.onMessage(records)
+                }
             }.doOnError {
                 log.warn(it) { "Error during consumer task" }
             }.subscribe()
