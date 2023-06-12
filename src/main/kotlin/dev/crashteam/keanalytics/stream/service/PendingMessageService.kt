@@ -4,6 +4,7 @@ import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import dev.crashteam.keanalytics.stream.listener.BatchStreamListener
+import kotlinx.coroutines.reactive.awaitFirstOrNull
 import org.springframework.data.domain.Range
 import org.springframework.data.redis.connection.ReactiveRedisConnection
 import org.springframework.data.redis.connection.stream.ObjectRecord
@@ -26,7 +27,7 @@ class PendingMessageService(
         consumerGroupName: String,
         consumerName: String,
         listener: StreamListener<String, ObjectRecord<String, String>>
-    ) = runBlocking {
+    ) {
         messageReactiveRedisTemplate.opsForStream<String, String>().pending(
             streamKey,
             consumerGroupName,
@@ -48,13 +49,13 @@ class PendingMessageService(
                 }
             } else if (pendingMessage.totalDeliveryCount > MAX_RETRY) {
                 messageReactiveRedisTemplate.opsForStream<String, String>()
-                    .acknowledge(streamKey, consumerGroupName, pendingMessage.idAsString).subscribe()
+                    .acknowledge(streamKey, consumerGroupName, pendingMessage.idAsString).awaitSingleOrNull()
                 log.info { "Message has been added acknowledged case of max_retry attempts: ${pendingMessage.idAsString}" }
             } else {
                 for (message in messagesToProcess) {
                     listener.onMessage(message)
                     messageReactiveRedisTemplate.opsForStream<String, String>()
-                        .acknowledge(streamKey, consumerGroupName, message.id).subscribe()
+                        .acknowledge(streamKey, consumerGroupName, message.id).awaitSingleOrNull()
                 }
             }
         }
@@ -88,18 +89,18 @@ class PendingMessageService(
                 }
             } else if (pendingMessage.totalDeliveryCount > MAX_RETRY) {
                 messageReactiveRedisTemplate.opsForStream<String, String>()
-                    .acknowledge(streamKey, consumerGroupName, pendingMessage.idAsString).subscribe()
+                    .acknowledge(streamKey, consumerGroupName, pendingMessage.idAsString).awaitSingleOrNull()
                 log.info { "Message has been added acknowledged case of max_retry attempts: ${pendingMessage.idAsString}" }
             } else {
                 listener.onMessage(messagesToProcess)
                 val recordIds = messagesToProcess.map { it.id }
                 messageReactiveRedisTemplate.opsForStream<String, String>()
-                    .acknowledge(streamKey, consumerGroupName, *recordIds.toTypedArray()).subscribe()
+                    .acknowledge(streamKey, consumerGroupName, *recordIds.toTypedArray()).awaitSingleOrNull()
             }
         }
     }
 
-    private fun claimMessage(
+    private suspend fun claimMessage(
         streamKey: String,
         consumerGroupName: String,
         consumerName: String,
@@ -112,7 +113,7 @@ class PendingMessageService(
             consumerName,
             Duration.ofSeconds(5),
             pendingMessage.id
-        ).subscribe()
+        ).awaitFirstOrNull()
     }
 
     private companion object {
