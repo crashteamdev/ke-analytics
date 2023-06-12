@@ -1,15 +1,14 @@
 package dev.crashteam.keanalytics.stream.scheduler
 
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
-import mu.KotlinLogging
 import dev.crashteam.keanalytics.config.properties.RedisProperties
 import dev.crashteam.keanalytics.stream.listener.BatchStreamListener
 import dev.crashteam.keanalytics.stream.listener.KeCategoryStreamListener
 import dev.crashteam.keanalytics.stream.listener.KeProductItemStreamListener
 import dev.crashteam.keanalytics.stream.listener.KeProductPositionStreamListener
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import org.springframework.data.redis.connection.stream.Consumer
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.ReadOffset
@@ -20,12 +19,11 @@ import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.retry.support.RetryTemplate
 import org.springframework.stereotype.Component
 import reactor.core.scheduler.Schedulers
+import reactor.kotlin.core.publisher.toMono
 import reactor.util.retry.Retry
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import javax.annotation.PostConstruct
-import kotlin.time.Duration.Companion.minutes
-
 
 private val log = KotlinLogging.logger {}
 
@@ -102,8 +100,8 @@ class MessageScheduler(
             StreamOffset.create(streamKey, ReadOffset.lastConsumed())
         ).publishOn(Schedulers.boundedElastic()).doOnNext {
             listener.onMessage(it)
-            messageReactiveRedisTemplate.opsForStream<String, String>()
-                .acknowledge(streamKey, consumerGroup, it.id).subscribe()
+        }.flatMap {
+            messageReactiveRedisTemplate.opsForStream<String, String>().acknowledge(streamKey, consumerGroup, it.id)
         }.retryWhen(
             Retry.fixedDelay(MAX_RETRY_ATTEMPTS, java.time.Duration.ofSeconds(RETRY_DURATION_SEC)).doBeforeRetry {
                 log.warn(it.failure()) { "Error during consumer task" }
@@ -127,12 +125,12 @@ class MessageScheduler(
         ).onBackpressureBuffer()
             .parallel(redisProperties.stream.batchParallelCount)
             .runOn(Schedulers.newParallel("redis-stream-batch", redisProperties.stream.batchParallelCount))
-            .doOnNext { records ->
+            .flatMap { records ->
                 listener.onMessage(records)
-                val recordIds = records.map { it.id }
+                records.map { it.id }.toMono()
+            }.flatMap { recordIds ->
                 messageReactiveRedisTemplate.opsForStream<String, String>()
-                    .acknowledge(streamKey, consumerGroup, *recordIds.toTypedArray()).subscribe()
-                log.info { "Records successfully handled: $recordIds" }
+                    .acknowledge(streamKey, consumerGroup, *recordIds.toTypedArray())
             }.doOnError {
                 log.warn(it) { "Error during consumer task" }
             }.subscribe()
