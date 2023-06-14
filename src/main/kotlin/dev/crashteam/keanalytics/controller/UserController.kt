@@ -19,13 +19,13 @@ import java.time.LocalDateTime
 private val log = KotlinLogging.logger {}
 
 @RestController
-@RequestMapping(path = ["v1/user"], produces = [MediaType.APPLICATION_JSON_VALUE])
+@RequestMapping(path = ["v1"], produces = [MediaType.APPLICATION_JSON_VALUE])
 class UserController(
     private val userService: UserService,
     private val userRepository: UserRepository,
 ) {
 
-    @PostMapping("/api-key")
+    @PostMapping("/user/api-key")
     suspend fun createApiKey(principal: Principal): ResponseEntity<UserApiKey> {
         log.info { "Create apiKey. User=${principal.name}" }
         val email = (principal as JwtAuthenticationToken).token.claims["email"].toString()
@@ -34,7 +34,7 @@ class UserController(
         return ResponseEntity.ok(UserApiKey(apiKey.hashKey))
     }
 
-    @GetMapping("/api-key")
+    @GetMapping("/user/api-key")
     suspend fun getApiKey(principal: Principal): ResponseEntity<UserApiKey> {
         log.info { "Get apiKey. User=${principal.name}" }
         var apiKey = userService.getApiKey(principal.name)
@@ -49,7 +49,7 @@ class UserController(
         return ResponseEntity.ok(UserApiKey(apiKey.hashKey))
     }
 
-    @PutMapping("/api-key")
+    @PutMapping("/user/api-key")
     suspend fun updateApiKey(principal: Principal): ResponseEntity<UserApiKey> {
         log.info { "Update apiKey. User=${principal.name}" }
         val apiKey = userService.recreateApiKey(principal.name) ?: return ResponseEntity.notFound().build()
@@ -57,7 +57,7 @@ class UserController(
         return ResponseEntity.ok(UserApiKey(apiKey.hashKey))
     }
 
-    @GetMapping("/subscription")
+    @GetMapping("/user/subscription")
     suspend fun getSubscription(principal: Principal): ResponseEntity<UserSubscriptionView> {
         log.info { "Get user subscription. User=${principal.name}" }
         var user = userService.findUser(principal.name)
@@ -81,7 +81,7 @@ class UserController(
         return ResponseEntity.ok(sub)
     }
 
-    @GetMapping("/subscription/apikey")
+    @GetMapping("/user/subscription/apikey")
     suspend fun getSubscriptionWithApiKey(
         @RequestHeader(name = "X-API-KEY", required = true) apiKey: String,
     ): ResponseEntity<UserSubscriptionView> {
@@ -101,7 +101,7 @@ class UserController(
         return ResponseEntity.ok(sub)
     }
 
-    @PostMapping("/referral-code")
+    @PostMapping("/user/referral-code")
     suspend fun createReferralCode(principal: Principal): ResponseEntity<ReferralCodeView> {
         log.info { "Create referral code. User=${principal.name}" }
         val email = (principal as JwtAuthenticationToken).token.claims["email"].toString()
@@ -110,7 +110,7 @@ class UserController(
         return ResponseEntity(ReferralCodeView(referralCodeDocument.code), HttpStatus.CREATED)
     }
 
-    @GetMapping("/referral-code")
+    @GetMapping("/user/referral-code")
     suspend fun getReferralCode(principal: Principal): ResponseEntity<ReferralCodeView> {
         log.info { "Get referral code. User=${principal.name}" }
         val referralCode = userService.getUserPromoCode(principal.name) ?: return ResponseEntity.notFound().build()
