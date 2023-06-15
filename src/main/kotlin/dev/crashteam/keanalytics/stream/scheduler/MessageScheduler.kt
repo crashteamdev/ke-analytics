@@ -7,6 +7,7 @@ import dev.crashteam.keanalytics.stream.listener.KeProductItemStreamListener
 import dev.crashteam.keanalytics.stream.listener.KeProductPositionStreamListener
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.data.redis.connection.stream.Consumer
@@ -94,11 +95,13 @@ class MessageScheduler(
         listener: StreamListener<String, ObjectRecord<String, String>>,
     ) {
         val consumer = Consumer.from(consumerGroup, consumerName)
-        receiver.receiveAutoAck(
+        receiver.receive(
             consumer,
             StreamOffset.create(streamKey, ReadOffset.lastConsumed())
         ).publishOn(Schedulers.boundedElastic()).doOnNext {
             listener.onMessage(it)
+            messageReactiveRedisTemplate.opsForStream<String, String>().acknowledge(streamKey, consumerGroup, it.id)
+                .subscribe()
         }.retryWhen(
             Retry.fixedDelay(MAX_RETRY_ATTEMPTS, java.time.Duration.ofSeconds(RETRY_DURATION_SEC)).doBeforeRetry {
                 log.warn(it.failure()) { "Error during consumer task" }
@@ -113,7 +116,7 @@ class MessageScheduler(
         listener: BatchStreamListener<String, ObjectRecord<String, String>>,
     ) {
         val consumer = Consumer.from(consumerGroup, consumerName)
-        receiver.receiveAutoAck(
+        receiver.receive(
             consumer,
             StreamOffset.create(streamKey, ReadOffset.lastConsumed())
         ).bufferTimeout(
@@ -125,6 +128,9 @@ class MessageScheduler(
             .doOnNext { records ->
                 runBlocking {
                     listener.onMessage(records)
+                    val recordIds = records.map { it.id }
+                    messageReactiveRedisTemplate.opsForStream<String, String>()
+                        .acknowledge(streamKey, consumerGroup, *recordIds.toTypedArray()).awaitSingleOrNull()
                 }
             }.doOnError {
                 log.warn(it) { "Error during consumer task" }
