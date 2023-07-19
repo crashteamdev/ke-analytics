@@ -9,7 +9,9 @@ import mu.KotlinLogging
 import dev.crashteam.keanalytics.client.kazanexpress.model.RootCategoriesResponse
 import dev.crashteam.keanalytics.client.kazanexpress.model.SimpleCategory
 import dev.crashteam.keanalytics.domain.mongo.CategoryDocument
+import dev.crashteam.keanalytics.domain.mongo.CategoryTreeDocument
 import dev.crashteam.keanalytics.repository.mongo.CategoryDao
+import dev.crashteam.keanalytics.repository.mongo.CategoryTreeDao
 import dev.crashteam.keanalytics.stream.model.KeCategoryStreamRecord
 import org.springframework.context.ApplicationContext
 import org.springframework.data.redis.connection.stream.ObjectRecord
@@ -22,7 +24,8 @@ private val log = KotlinLogging.logger {}
 @Component
 class KeCategoryStreamListener(
     private val objectMapper: ObjectMapper,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val categoryTreeDao: CategoryTreeDao,
 ) : StreamListener<String, ObjectRecord<String, String>> {
 
     override fun onMessage(message: ObjectRecord<String, String>) {
@@ -42,6 +45,9 @@ class KeCategoryStreamListener(
                 )
                 categoryDao.saveCategory(categoryDocument).awaitSingleOrNull()
                 saveChildCategories(categoryStreamRecord, categoryStreamRecord.children ?: emptyList(), null)
+
+                // Save hierarchical category view
+                saveHierarchicalRootCategory(categoryStreamRecord)
             } catch (e: Exception) {
                 log.error(e) { "Exception during handle category message" }
             }
@@ -68,6 +74,37 @@ class KeCategoryStreamListener(
             categoryDao.saveCategory(categoryDocument).awaitSingleOrNull()
             if (childCategory.children?.isNotEmpty() == true) {
                 saveChildCategories(childCategory, childCategory.children, categoryDocument.path)
+            }
+        }
+    }
+
+    private suspend fun saveHierarchicalRootCategory(
+        rootCategoryRecord: KeCategoryStreamRecord,
+    ) {
+        val rootCategory = CategoryTreeDocument(
+            categoryId = rootCategoryRecord.id,
+            parentCategoryId = 0,
+            title = rootCategoryRecord.title
+        )
+        categoryTreeDao.saveCategory(rootCategory).awaitSingleOrNull()
+        if (rootCategoryRecord.children?.isNotEmpty() == true) {
+            saveHierarchicalChildCategory(rootCategoryRecord, rootCategoryRecord.children)
+        }
+    }
+
+    private suspend fun saveHierarchicalChildCategory(
+        currentCategoryRecord: KeCategoryStreamRecord,
+        childCategoryRecords: List<KeCategoryStreamRecord>
+    ) {
+        for (childrenRecord in childCategoryRecords) {
+            val childCategory = CategoryTreeDocument(
+                categoryId = childrenRecord.id,
+                parentCategoryId = currentCategoryRecord.id,
+                title = childrenRecord.title,
+            )
+            categoryTreeDao.saveCategory(childCategory).awaitSingleOrNull()
+            if (childrenRecord.children?.isNotEmpty() == true) {
+                saveHierarchicalChildCategory(childrenRecord, childrenRecord.children)
             }
         }
     }

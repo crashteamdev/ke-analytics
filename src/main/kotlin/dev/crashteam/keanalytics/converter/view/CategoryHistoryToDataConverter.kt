@@ -1,9 +1,10 @@
-package dev.crashteam.keanalytics.controller.converter
+package dev.crashteam.keanalytics.converter.view
 
 import dev.crashteam.keanalytics.controller.model.CategoryDataView
 import dev.crashteam.keanalytics.controller.model.CategorySalesSellerView
 import dev.crashteam.keanalytics.controller.model.CategorySalesView
 import dev.crashteam.keanalytics.controller.model.CategorySalesViewWrapper
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.service.model.AggregateSalesWrapper
 import org.springframework.stereotype.Component
 

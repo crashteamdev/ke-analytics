@@ -1,6 +1,6 @@
 package dev.crashteam.keanalytics.config
 
-import dev.crashteam.keanalytics.controller.converter.DataConverter
+import dev.crashteam.keanalytics.converter.DataConverter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.Configuration
@@ -15,7 +15,8 @@ import java.util.*
 @ComponentScan(
     basePackages = [
         "dev.crashteam.keanalytics.controller.converter",
-        "dev.crashteam.keanalytics.domain.mongo.converter"
+        "dev.crashteam.keanalytics.domain.mongo.converter",
+        "dev.crashteam.keanalytics.converter",
     ]
 )
 class ConverterConfig {

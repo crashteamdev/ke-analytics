@@ -1,7 +1,8 @@
-package dev.crashteam.keanalytics.controller.converter
+package dev.crashteam.keanalytics.converter.view
 
 import dev.crashteam.keanalytics.controller.model.ProductTotalOrderSellerView
 import dev.crashteam.keanalytics.controller.model.ProductTotalOrdersView
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.repository.mongo.model.ProductTotalOrdersAggregate
 import org.springframework.stereotype.Component
 import java.math.RoundingMode

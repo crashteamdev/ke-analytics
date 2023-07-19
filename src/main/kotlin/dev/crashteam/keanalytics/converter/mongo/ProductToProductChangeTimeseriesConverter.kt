@@ -1,9 +1,9 @@
-package dev.crashteam.keanalytics.domain.mongo.converter
+package dev.crashteam.keanalytics.converter.mongo
 
 import dev.crashteam.keanalytics.client.kazanexpress.model.ProductCategory
 import dev.crashteam.keanalytics.client.kazanexpress.model.ProductData
 import dev.crashteam.keanalytics.client.kazanexpress.model.ProductPhoto
-import dev.crashteam.keanalytics.controller.converter.DataConverter
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.domain.mongo.ProductChangeTimeSeries
 import dev.crashteam.keanalytics.domain.mongo.ProductIdSkuId
 import dev.crashteam.keanalytics.domain.mongo.ProductMetadata

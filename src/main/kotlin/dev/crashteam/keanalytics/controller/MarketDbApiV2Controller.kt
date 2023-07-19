@@ -15,10 +15,7 @@ import dev.crashteam.keanalytics.report.ReportService
 import dev.crashteam.keanalytics.repository.mongo.CategoryRepository
 import dev.crashteam.keanalytics.repository.mongo.ReportRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
-import dev.crashteam.keanalytics.service.CategoryService
-import dev.crashteam.keanalytics.service.ProductServiceV2
-import dev.crashteam.keanalytics.service.SellerService
-import dev.crashteam.keanalytics.service.UserRestrictionService
+import dev.crashteam.keanalytics.service.*
 import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
@@ -30,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ServerWebExchange
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.core.publisher.toMono
 import reactor.kotlin.core.publisher.toFlux
 import reactor.kotlin.core.publisher.toMono
 import java.math.RoundingMode
@@ -50,21 +48,8 @@ class MarketDbApiV2Controller(
     private val reportService: ReportService,
     private val reportRepository: ReportRepository,
     private val categoryRepository: CategoryRepository,
+    private val productServiceAnalytics: ProductServiceAnalytics,
 ) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi {
-
-    override fun categoryAveragePrice(
-        xRequestID: String,
-        path: MutableList<String>,
-        day: LocalDate,
-        exchange: ServerWebExchange
-    ): Mono<ResponseEntity<CategoryAveragePrice200Response>> {
-        return categoryService.getCategoryAveragePrice(path, day).flatMap { categoryAveragePrice ->
-            ResponseEntity.ok(CategoryAveragePrice200Response().apply {
-                this.averagePrice = categoryAveragePrice.averagePrice.toLong()
-                this.productCount = categoryAveragePrice.productCount
-            }).toMono()
-        }.toMono().doOnError { log.error(it) { "Failed get category average price" } }
-    }
 
     override fun productSkuHistory(
         xRequestID: String,
@@ -76,25 +61,32 @@ class MarketDbApiV2Controller(
         offset: Int,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<Flux<ProductSkuHistory>>> {
-        return productServiceV2.getProductSkuSalesHistory(productId, skuId, fromTime, toTime, limit, offset).flatMap {
-            val productSkuHistories = it.data.map { productSkuHistory ->
-                ProductSkuHistory().apply {
-                    this.productId = productSkuHistory.productId
-                    this.skuId = productSkuHistory.skuId
-                    this.name = productSkuHistory.name
-                    this.orderAmount = productSkuHistory.orderAmount
-                    this.reviewsAmount = productSkuHistory.reviewsAmount
-                    this.totalAvailableAmount = productSkuHistory.totalAvailableAmount
-                    this.fullPrice = productSkuHistory.fullPrice.toDouble()
-                    this.purchasePrice = productSkuHistory.price.toDouble()
-                    this.availableAmount = productSkuHistory.availableAmount
-                    this.photoKey = productSkuHistory.photoKey
-                    this.date = productSkuHistory.id.day.toInstant().atZone(ZoneId.of("UTC")).toLocalDate()
-                    this.salesAmount = productSkuHistory.salesAmount.setScale(2, RoundingMode.HALF_UP).toDouble()
-                }
-            }.toFlux()
-            ResponseEntity.ok(productSkuHistories).toMono()
-        }.toMono().doOnError { log.error(it) { "Failed get product sku history" } }
+        val productAnalytics = productServiceAnalytics.getProductAnalytics(
+            productId,
+            skuId,
+            fromTime.toLocalDateTime(),
+            toTime.toLocalDateTime()
+        )
+        if (productAnalytics.isEmpty()) {
+            return ResponseEntity.notFound().build<Flux<ProductSkuHistory>>().toMono()
+        }
+        val productSkuHistoryList = productAnalytics.map {
+            ProductSkuHistory().apply {
+                this.productId = productId
+                this.skuId = skuId
+                this.name = it.title
+                this.orderAmount = it.orderAmount
+                this.reviewsAmount = it.reviewAmount
+                this.totalAvailableAmount = it.totalAvailableAmount
+                this.fullPrice = it.fullPrice?.toDouble()
+                this.purchasePrice = it.purchasePrice.toDouble()
+                this.availableAmount = it.availableAmount
+                this.salesAmount = it.salesAmount.toDouble()
+                this.photoKey = it.photoKey
+                this.date = it.date
+            }
+        }
+        return ResponseEntity.ok(productSkuHistoryList.toFlux()).toMono()
     }
 
     override fun getProductSales(
@@ -103,20 +95,25 @@ class MarketDbApiV2Controller(
         toTime: OffsetDateTime,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<Flux<GetProductSales200ResponseInner>>> {
-        return ResponseEntity.ok(
-            productServiceV2.getProductsSales(productIds.toLongArray(), fromTime, toTime).map {
-                GetProductSales200ResponseInner().apply {
-                    this.productId = it.id.productId
-                    this.salesAmount = it.salesAmount.setScale(2, RoundingMode.HALF_UP).toDouble()
-                    this.orderAmount = it.orderAmount
-                    this.dailyOrder = it.dailyOrder.setScale(2, RoundingMode.HALF_UP).toDouble()
-                    this.seller = Seller().apply {
-                        this.title = it.sellerTitle
-                        this.link = it.sellerLink
-                        this.accountId = it.sellerAccountId
-                    }
+        val productSalesAnalytics = productServiceAnalytics.getProductSalesAnalytics(
+            productIds,
+            fromTime.toLocalDateTime(),
+            toTime.toLocalDateTime()
+        )
+        val productSales = productSalesAnalytics.map {
+            GetProductSales200ResponseInner().apply {
+                this.productId = it.productId.toLong()
+                this.salesAmount = it.salesAmount.toDouble()
+                this.orderAmount = it.orderAmount
+                this.dailyOrder = it.dailyOrderAmount.setScale(2, RoundingMode.HALF_UP).toDouble()
+                this.seller = Seller().apply {
+                    this.accountId = it.sellerAccountId
+                    this.link = it.sellerLink
+                    this.title = it.sellerTitle
                 }
-            }).toMono().doOnError { log.error(it) { "Failed get products sales history" } }
+            }
+        }
+        return ResponseEntity.ok(productSales.toFlux()).toMono()
     }
 
     override fun getSellerShops(sellerLink: String, exchange: ServerWebExchange): Mono<ResponseEntity<Flux<Seller>>> {
@@ -353,5 +350,23 @@ class MarketDbApiV2Controller(
             }
             ResponseEntity.ok(reportDocuments.toFlux()).toMono()
         }.doOnError { log.error(it) { "Failed get reports" } }
+    }
+
+    override fun categoryOverallInfo(
+        xRequestID: String,
+        categoryId: Long,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<CategoryOverallInfo200Response>> {
+        val categoryOverallAnalytics = productServiceAnalytics.getCategoryOverallAnalytics(categoryId)
+            ?: return ResponseEntity.notFound().build<CategoryOverallInfo200Response>().toMono()
+        return ResponseEntity.ok(CategoryOverallInfo200Response().apply {
+            this.averagePrice = categoryOverallAnalytics.averagePrice.setScale(2, RoundingMode.HALF_UP).toDouble()
+            this.orderCount = categoryOverallAnalytics.orderCount
+            this.sellerCount = categoryOverallAnalytics.sellerCount
+            this.salesPerSeller = categoryOverallAnalytics.salesPerSeller.setScale(2, RoundingMode.HALF_UP).toDouble()
+            this.productCount = categoryOverallAnalytics.productCount
+            this.productZeroSalesCount = categoryOverallAnalytics.productZeroSalesCount
+            this.sellersZeroSalesCount = categoryOverallAnalytics.sellersZeroSalesCount
+        }).toMono()
     }
 }

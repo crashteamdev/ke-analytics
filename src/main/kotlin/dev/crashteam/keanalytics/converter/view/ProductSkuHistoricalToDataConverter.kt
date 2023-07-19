@@ -1,7 +1,8 @@
-package dev.crashteam.keanalytics.controller.converter
+package dev.crashteam.keanalytics.converter.view
 
 import dev.crashteam.keanalytics.controller.model.ProductSkuHistoricalCharacteristicView
 import dev.crashteam.keanalytics.controller.model.ProductSkuHistoricalView
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.service.model.ProductSkuHistorical
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime

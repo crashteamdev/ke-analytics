@@ -1,7 +1,7 @@
-package dev.crashteam.keanalytics.domain.mongo.converter
+package dev.crashteam.keanalytics.converter.mongo
 
 import dev.crashteam.keanalytics.client.kazanexpress.model.*
-import dev.crashteam.keanalytics.controller.converter.DataConverter
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.domain.mongo.ProductContactDocument
 import dev.crashteam.keanalytics.domain.mongo.SellerDocument
 import org.springframework.stereotype.Component

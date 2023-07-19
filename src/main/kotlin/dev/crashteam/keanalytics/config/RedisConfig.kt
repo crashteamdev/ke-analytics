@@ -1,12 +1,13 @@
 package dev.crashteam.keanalytics.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import mu.KotlinLogging
 import dev.crashteam.keanalytics.client.kazanexpress.model.ProductResponse
 import dev.crashteam.keanalytics.config.properties.RedisProperties
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryOverallInfo
 import dev.crashteam.keanalytics.repository.redis.ApiKeyUserSessionInfo
-import org.springframework.beans.factory.annotation.Value
+import mu.KotlinLogging
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.autoconfigure.data.redis.LettuceClientConfigurationBuilderCustomizer
@@ -92,6 +93,21 @@ class RedisConfig(
                     }
 
                 })).entryTtl(Duration.ofSeconds(120))
+            configurationMap[CATEGORY_OVERALL_INFO_CACHE] = RedisCacheConfiguration.defaultCacheConfig()
+                .serializeValuesWith(fromSerializer(object :
+                    RedisSerializer<Any> {
+                    override fun serialize(t: Any?): ByteArray {
+                        return jacksonObjectMapper().writeValueAsBytes(t)
+                    }
+
+                    override fun deserialize(bytes: ByteArray?): Any? {
+                        return if (bytes != null) {
+                            jacksonObjectMapper().readValue(bytes, ChCategoryOverallInfo::class.java)
+                        } else null
+                    }
+
+                }))
+                .entryTtl(Duration.ofSeconds(86400))
             builder.withInitialCacheConfigurations(configurationMap)
         }
     }
@@ -175,5 +191,6 @@ class RedisConfig(
 
     companion object {
         const val KE_CLIENT_CACHE_NAME = "ke-products-info"
+        const val CATEGORY_OVERALL_INFO_CACHE = "category-overall-info"
     }
 }

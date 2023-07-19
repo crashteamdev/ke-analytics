@@ -1,8 +1,9 @@
-package dev.crashteam.keanalytics.controller.converter
+package dev.crashteam.keanalytics.converter.view
 
 import dev.crashteam.keanalytics.controller.model.ProductItemView
 import dev.crashteam.keanalytics.controller.model.ProductSellerView
 import dev.crashteam.keanalytics.controller.model.ProductView
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.domain.mongo.ProductDocument
 import org.springframework.context.annotation.Lazy
 import org.springframework.core.convert.ConversionService

@@ -1,6 +1,7 @@
-package dev.crashteam.keanalytics.controller.converter
+package dev.crashteam.keanalytics.converter.view
 
 import dev.crashteam.keanalytics.controller.model.ProductSellerView
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.domain.mongo.SellerDocument
 import org.springframework.stereotype.Component
 

@@ -1,4 +1,4 @@
-package dev.crashteam.keanalytics.controller.converter
+package dev.crashteam.keanalytics.converter
 
 import org.springframework.core.convert.converter.Converter
 

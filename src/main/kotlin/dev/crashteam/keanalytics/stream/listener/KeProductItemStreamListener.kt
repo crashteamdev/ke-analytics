@@ -2,7 +2,9 @@ package dev.crashteam.keanalytics.stream.listener
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import dev.crashteam.keanalytics.converter.clickhouse.ChKeProductConverterResultWrapper
 import dev.crashteam.keanalytics.domain.mongo.*
+import dev.crashteam.keanalytics.repository.clickhouse.CHProductRepository
 import dev.crashteam.keanalytics.repository.mongo.ProductChangeTimeSeriesRepository
 import dev.crashteam.keanalytics.repository.mongo.SellerRepository
 import dev.crashteam.keanalytics.service.ProductService
@@ -27,6 +29,7 @@ class KeProductItemStreamListener(
     private val conversionService: ConversionService,
     private val productChangeTimeSeriesRepository: ProductChangeTimeSeriesRepository,
     private val sellerRepository: SellerRepository,
+    private val chProductRepository: CHProductRepository,
 ) : BatchStreamListener<String, ObjectRecord<String, String>> {
 
     override suspend fun onMessage(messages: List<ObjectRecord<String, String>>) {
@@ -51,15 +54,14 @@ class KeProductItemStreamListener(
                 }
             }
 
-            // NEW schema
+            // NEW schema (Clickhouse)
             val saveProductTask = async {
                 try {
-                    log.info { "Save ${keProductItemStreamRecords.size} products (NEW SCHEMA)" }
-                    val productChangeTimeSeries = keProductItemStreamRecords.flatMap {
-                        (conversionService.convert(it, ProductChangeTimeSeries::class.java.arrayType())
-                                as Array<ProductChangeTimeSeries>).asList()
-                    }
-                    productChangeTimeSeriesRepository.saveAll(productChangeTimeSeries).subscribe()
+                    log.info { "Save ${keProductItemStreamRecords.size} products (NEW)" }
+                    val products = keProductItemStreamRecords.map {
+                        conversionService.convert(it, ChKeProductConverterResultWrapper::class.java)!!
+                    }.flatMap { it.result }
+                    chProductRepository.saveProducts(products)
                 } catch (e: Exception) {
                     log.error(e) { "Exception during save products on NEW SCHEMA" }
                 }
