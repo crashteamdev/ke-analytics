@@ -183,7 +183,7 @@ class CHProductRepository(
 
     fun saveProducts(productFetchList: List<ChKeProduct>) {
         jdbcTemplate.batchUpdate(
-            "INSERT INTO uzum.product " +
+            "INSERT INTO ke.product " +
                     "(timestamp, product_id, sku_id, title, rating, latest_category_id, reviews_amount," +
                     " total_orders_amount, total_available_amount, available_amount, attributes," +
                     " tags, photo_key, characteristics, seller_id, seller_account_id, seller_title, seller_link," +
