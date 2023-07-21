@@ -70,7 +70,7 @@ class CHProductRepository(
                                  any(purchase_price)      AS purchase_price,
                                  any(full_price)          AS full_price,
                                  any(photo_key)           AS photo_key
-                          FROM uzum.product
+                          FROM kazanex.product
                           WHERE product_id = ?
                             AND sku_id = ?
                             AND timestamp BETWEEN ? AND ?
@@ -113,7 +113,7 @@ class CHProductRepository(
                                    max(seller_title)        AS seller_title,
                                    max(seller_link)         AS seller_link,
                                    max(seller_account_id)   AS seller_account_id
-                            FROM uzum.product
+                            FROM kazanex.product
                             WHERE product_id IN (?)
                               AND timestamp BETWEEN ? AND ?
                             GROUP BY product_id, sku_id, toDate(timestamp) AS date
@@ -139,7 +139,7 @@ class CHProductRepository(
                                               p.total_orders_amount,
                                               p.purchase_price,
                                               p.seller_id
-                                       FROM uzum.product p
+                                       FROM kazanex.product p
                                        WHERE timestamp BETWEEN ? AND ?
                                          AND latest_category_id IN
                                              if(length(dictGetDescendants('categories_dictionary', ?, 0)) >
