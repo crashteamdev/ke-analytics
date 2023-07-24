@@ -191,6 +191,6 @@ class RedisConfig(
 
     companion object {
         const val KE_CLIENT_CACHE_NAME = "ke-products-info"
-        const val CATEGORY_OVERALL_INFO_CACHE = "category-overall-info"
+        const val CATEGORY_OVERALL_INFO_CACHE = "ke-category-overall-info"
     }
 }

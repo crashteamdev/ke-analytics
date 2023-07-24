@@ -7,9 +7,7 @@ import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductSalesHisto
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductsSales
 import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Component
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 
 @Component
 class ProductServiceAnalytics(
@@ -17,10 +15,11 @@ class ProductServiceAnalytics(
 ) {
 
     @Cacheable(value = [RedisConfig.CATEGORY_OVERALL_INFO_CACHE], unless = "#result == null")
-    fun getCategoryOverallAnalytics(categoryId: Long): ChCategoryOverallInfo? {
-        val fromTime = LocalDate.now().minusDays(30).atTime(LocalTime.MIN)
-        val toTime = LocalDate.now().atTime(LocalTime.MAX)
-
+    fun getCategoryOverallAnalytics(
+        categoryId: Long,
+        fromTime: LocalDateTime,
+        toTime: LocalDateTime
+    ): ChCategoryOverallInfo? {
         return chProductRepository.getCategoryAnalytics(categoryId, fromTime, toTime)
     }
 

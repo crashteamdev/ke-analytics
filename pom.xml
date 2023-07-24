@@ -187,7 +187,7 @@
         <dependency>
             <groupId>dev.crashteam</groupId>
             <artifactId>openapi-ke-analytics</artifactId>
-            <version>1.30-ae98f6d-server</version>
+            <version>1.31-911219d-server</version>
         </dependency>
 
         <!-- Test -->
