@@ -148,6 +148,7 @@ class CHProductRepository(
                                                 array(?)))
 
             SELECT round((sum(price) / 100) / count(), 2)          AS avg_price,
+                   sum(revenue) / 100                              AS revenue,
                    sum(order_amount)                               AS order_count,
                    any(seller_count)                               AS seller_counts,
                    any(product_count)                              AS product_counts,
@@ -156,6 +157,7 @@ class CHProductRepository(
                            uniq(seller_identifier) AS seller_zero_sales_count
                     FROM (SELECT product_id,
                                  total_orders_amount_max - total_orders_amount_min AS order_amount,
+                                 (total_orders_amount_max - total_orders_amount_min) * purchase_price AS revenue,
                                  seller_identifier
                           FROM (SELECT product_id,
                                        min(total_orders_amount) AS total_orders_amount_min,

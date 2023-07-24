@@ -12,6 +12,7 @@ class CategoryOverallInfoMapper : RowMapper<ChCategoryOverallInfo> {
             .split(",")
         return ChCategoryOverallInfo(
             averagePrice = rs.getBigDecimal("avg_price"),
+            revenue = rs.getBigDecimal("revenue"),
             orderCount = rs.getLong("order_count"),
             sellerCount = rs.getLong("seller_counts"),
             salesPerSeller = rs.getBigDecimal("sales_per_seller"),

@@ -4,6 +4,7 @@ import java.math.BigDecimal
 
 data class ChCategoryOverallInfo(
     val averagePrice: BigDecimal,
+    val revenue: BigDecimal?,
     val orderCount: Long,
     val sellerCount: Long,
     val salesPerSeller: BigDecimal,
