@@ -142,9 +142,9 @@ class CHProductRepository(
                                        FROM kazanex.product p
                                        WHERE timestamp BETWEEN ? AND ?
                                          AND latest_category_id IN
-                                             if(length(dictGetDescendants('categories_dictionary', ?, 0)) >
+                                             if(length(dictGetDescendants('categories_hierarchical_dictionary', ?, 0)) >
                                                 0,
-                                                dictGetDescendants('categories_dictionary', ?, 0),
+                                                dictGetDescendants('categories_hierarchical_dictionary', ?, 0),
                                                 array(?)))
 
             SELECT round((sum(price) / 100) / count(), 2)          AS avg_price,
