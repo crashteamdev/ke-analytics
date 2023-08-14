@@ -72,7 +72,8 @@ class PaymentService(
         subscriptionDays: Long,
         paymentPaid: Boolean,
         paymentStatus: String,
-        referralCode: String?
+        referralCode: String?,
+        currencyId: String,
     ) {
         val saveUser = if (user == null) {
             UserDocument(
@@ -100,7 +101,7 @@ class PaymentService(
 
         // Save payment
         val payment = paymentRepository.findByPaymentId(paymentId).awaitSingle()
-        val updatedPayment = payment.copy(paid = paymentPaid, status = paymentStatus)
+        val updatedPayment = payment.copy(paid = paymentPaid, status = paymentStatus, currencyId = currencyId)
         paymentRepository.save(updatedPayment).awaitSingleOrNull()
 
         // Save if user was invited
@@ -167,4 +168,42 @@ class PaymentService(
 
         return paymentResponse
     }
+
+    @Transactional
+    suspend fun callbackPayment(
+        paymentId: String,
+        userId: String,
+        currencyId: String,
+    ) {
+        val payment = findPayment(paymentId)!!
+        val user = userRepository.findByUserId(userId).awaitSingleOrNull()
+        val userSubscription = payment.subscriptionType.mapToSubscription()!!
+        if (payment.daysPaid != null) {
+            upgradeUserSubscription(
+                user!!, userSubscription, paymentId, true, "success"
+            )
+        } else {
+            val subDays = if (payment.multiply != null && payment.multiply > 1) {
+                30 * payment.multiply
+            } else 30
+            if (userSubscription.price().toBigDecimal() != payment.amount && payment.multiply == null) {
+                throw IllegalStateException(
+                    "Wrong payment amount. subscriptionPrice=${userSubscription.price()};" +
+                            " paymentAmount=${payment.amount}"
+                )
+            }
+            saveUserWithSubscription(
+                paymentId,
+                userId,
+                user,
+                userSubscription,
+                subDays.toLong(),
+                true,
+                "success",
+                referralCode = payment.referralCode,
+                currencyId = currencyId
+            )
+        }
+    }
+
 }

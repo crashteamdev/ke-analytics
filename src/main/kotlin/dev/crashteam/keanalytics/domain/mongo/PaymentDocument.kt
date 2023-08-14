@@ -20,6 +20,7 @@ data class PaymentDocument(
     val multiply: Short? = null,
     val referralCode: String? = null,
     val createdAt: LocalDateTime? = null,
+    val currencyId: String? = null,
 
     @MongoId
     val id: ObjectId = ObjectId(),

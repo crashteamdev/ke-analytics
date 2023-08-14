@@ -100,6 +100,13 @@ redis:
       consumerGroup: ke-analytics-category-group
       consumerName: ke-analytics-category-consumer
 
+freekassa:
+  baseUrl: https://api.freekassa.ru
+  shopId: 38286
+  apiKey: fake-api-key
+  secretWordFirst: 'fake-first-secret-word'
+  secretWordSecond: 'fake-second-secret-word'
+
 youkassa:
   shopId: 819837
   key: 'test_6qE96u7LbOog1NcjX9AocDz8sviH_FIhQ25sO2Jz0Qk'
