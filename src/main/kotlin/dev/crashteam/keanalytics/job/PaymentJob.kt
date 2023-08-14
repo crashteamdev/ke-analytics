@@ -81,7 +81,8 @@ class PaymentJob : Job {
                         subDays.toLong(),
                         checkStatusResponse.paid,
                         checkStatusResponse.status,
-                        referralCode = payment.referralCode
+                        referralCode = payment.referralCode,
+                        currencyId = "RUB",
                     )
                     break
                 } else if (checkStatusResponse.status == "pending") {
