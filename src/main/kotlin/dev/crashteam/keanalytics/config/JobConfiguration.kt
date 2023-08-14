@@ -28,10 +28,10 @@ class JobConfiguration(
 
     @PostConstruct
     fun init() {
-        schedulerFactoryBean.addJob(paymentJob(), true, true)
-        if (!schedulerFactoryBean.checkExists(TriggerKey(PAYMENT_JOB, PAYMENT_JOB_GROUP))) {
-            schedulerFactoryBean.scheduleJob(triggerPaymentJob())
-        }
+//        schedulerFactoryBean.addJob(paymentJob(), true, true)
+//        if (!schedulerFactoryBean.checkExists(TriggerKey(PAYMENT_JOB, PAYMENT_JOB_GROUP))) {
+//            schedulerFactoryBean.scheduleJob(triggerPaymentJob())
+//        }
         schedulerFactoryBean.addJob(reportCleanupJob(), true, true)
         if (!schedulerFactoryBean.checkExists(TriggerKey(REPORT_CLEANUP_JOB, REPORT_CLEANUP_GROUP))) {
             schedulerFactoryBean.scheduleJob(triggerReportCleanupJob())
