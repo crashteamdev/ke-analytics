@@ -2,7 +2,6 @@ package dev.crashteam.keanalytics.config
 
 import dev.crashteam.keanalytics.config.properties.KazanExpressProperties
 import dev.crashteam.keanalytics.job.GenerateReportMasterJob
-import dev.crashteam.keanalytics.job.PaymentMasterJob
 import dev.crashteam.keanalytics.job.ReportCleanUpJob
 import dev.crashteam.keanalytics.job.*
 import dev.crashteam.keanalytics.stream.scheduler.PendingMessageScheduler
@@ -28,10 +27,10 @@ class JobConfiguration(
 
     @PostConstruct
     fun init() {
-        schedulerFactoryBean.addJob(paymentJob(), true, true)
-        if (!schedulerFactoryBean.checkExists(TriggerKey(PAYMENT_JOB, PAYMENT_JOB_GROUP))) {
-            schedulerFactoryBean.scheduleJob(triggerPaymentJob())
-        }
+//        schedulerFactoryBean.addJob(paymentJob(), true, true)
+//        if (!schedulerFactoryBean.checkExists(TriggerKey(PAYMENT_JOB, PAYMENT_JOB_GROUP))) {
+//            schedulerFactoryBean.scheduleJob(triggerPaymentJob())
+//        }
         schedulerFactoryBean.addJob(reportCleanupJob(), true, true)
         if (!schedulerFactoryBean.checkExists(TriggerKey(REPORT_CLEANUP_JOB, REPORT_CLEANUP_GROUP))) {
             schedulerFactoryBean.scheduleJob(triggerReportCleanupJob())
@@ -46,22 +45,22 @@ class JobConfiguration(
         }
     }
 
-    private fun paymentJob(): JobDetailImpl {
-        val jobDetail = JobDetailImpl()
-        jobDetail.key = JobKey(PAYMENT_JOB, PAYMENT_JOB_GROUP)
-        jobDetail.jobClass = PaymentMasterJob::class.java
+//    private fun paymentJob(): JobDetailImpl {
+//        val jobDetail = JobDetailImpl()
+//        jobDetail.key = JobKey(PAYMENT_JOB, PAYMENT_JOB_GROUP)
+//        jobDetail.jobClass = PaymentMasterJob::class.java
+//
+//        return jobDetail
+//    }
 
-        return jobDetail
-    }
-
-    private fun triggerPaymentJob(): CronTrigger {
-        return TriggerBuilder.newTrigger()
-            .forJob(paymentJob())
-            .withIdentity(PAYMENT_JOB, PAYMENT_JOB_GROUP)
-            .withSchedule(CronScheduleBuilder.cronSchedule(kazanExpressProperties.paymentCron))
-            .withPriority(Int.MAX_VALUE)
-            .build()
-    }
+//    private fun triggerPaymentJob(): CronTrigger {
+//        return TriggerBuilder.newTrigger()
+//            .forJob(paymentJob())
+//            .withIdentity(PAYMENT_JOB, PAYMENT_JOB_GROUP)
+//            .withSchedule(CronScheduleBuilder.cronSchedule(kazanExpressProperties.paymentCron))
+//            .withPriority(Int.MAX_VALUE)
+//            .build()
+//    }
 
     private fun reportCleanupJob(): JobDetailImpl {
         val jobDetail = JobDetailImpl()

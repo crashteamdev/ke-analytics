@@ -1,21 +1,15 @@
 package dev.crashteam.keanalytics.config
 
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
-import dev.crashteam.keanalytics.repository.redis.ApiKeyUserSessionInfo
 import dev.crashteam.keanalytics.security.ApiKeyAuthHandlerFilter
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.core.annotation.Order
-import org.springframework.data.redis.core.ReactiveRedisTemplate
 import org.springframework.http.HttpMethod
-import org.springframework.http.HttpStatus
-import org.springframework.security.authentication.BadCredentialsException
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder
 import org.springframework.security.config.web.server.ServerHttpSecurity
-import org.springframework.security.core.Authentication
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
 import org.springframework.security.oauth2.core.OAuth2TokenValidator
 import org.springframework.security.oauth2.jwt.*
@@ -27,7 +21,6 @@ import org.springframework.security.web.server.util.matcher.ServerWebExchangeMat
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.reactive.CorsConfigurationSource
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
-import reactor.core.publisher.Mono
 
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
@@ -100,6 +93,8 @@ class SecurityConfig(
     fun oAuthWebFilterChain(http: ServerHttpSecurity): SecurityWebFilterChain {
         return http
             .cors().configurationSource(createCorsConfigSource()).and()
+            .csrf().disable()
+            .authorizeExchange().pathMatchers("/v1/payment/fk/callback").permitAll().and()
             .authorizeExchange().anyExchange().authenticated().and()
             .oauth2ResourceServer()
             .jwt()

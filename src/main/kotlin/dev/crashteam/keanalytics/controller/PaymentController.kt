@@ -1,11 +1,15 @@
 package dev.crashteam.keanalytics.controller
 
+import dev.crashteam.keanalytics.client.freekassa.FreeKassaClient
+import dev.crashteam.keanalytics.client.freekassa.model.FreeKassaPaymentRequestParams
+import dev.crashteam.keanalytics.client.freekassa.model.PaymentFormRequestParams
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import mu.KotlinLogging
 import dev.crashteam.keanalytics.client.yookassa.YooKassaClient
 import dev.crashteam.keanalytics.client.yookassa.model.PaymentAmount
 import dev.crashteam.keanalytics.client.yookassa.model.PaymentConfirmation
 import dev.crashteam.keanalytics.client.yookassa.model.PaymentRequest
+import dev.crashteam.keanalytics.config.properties.FreeKassaProperties
 import dev.crashteam.keanalytics.controller.model.PaymentCreate
 import dev.crashteam.keanalytics.controller.model.PaymentCreateResponse
 import dev.crashteam.keanalytics.controller.model.PaymentSubscriptionUpgradeCreate
@@ -16,23 +20,28 @@ import dev.crashteam.keanalytics.repository.mongo.ReferralCodeRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
 import dev.crashteam.keanalytics.service.PaymentService
 import dev.crashteam.keanalytics.service.UserService
+import kotlinx.coroutines.reactor.awaitSingle
+import org.apache.commons.codec.digest.DigestUtils
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.server.ServerWebExchange
 import java.math.BigDecimal
 import java.security.Principal
 import java.time.LocalDateTime
+import java.util.*
 
 private val log = KotlinLogging.logger {}
 
 @RestController
 @RequestMapping(path = ["v1"], produces = [MediaType.APPLICATION_JSON_VALUE])
 class PaymentController(
-    val youKassaClient: YooKassaClient,
-    val paymentService: PaymentService,
-    val userRepository: UserRepository,
-    val referralCodeRepository: ReferralCodeRepository,
-    val userService: UserService
+    private val freeKassaProperties: FreeKassaProperties,
+    private val freeKassaClient: FreeKassaClient,
+    private val paymentService: PaymentService,
+    private val userRepository: UserRepository,
+    private val referralCodeRepository: ReferralCodeRepository,
+    private val userService: UserService
 ) {
 
     @PostMapping("/payment")
@@ -79,24 +88,27 @@ class PaymentController(
         } else {
             body.amount
         }
-        val paymentRequest = PaymentRequest(
-            amount = PaymentAmount(amount, body.currency),
-            capture = true,
-            confirmation = PaymentConfirmation("redirect", body.redirectUrl),
-            createdAt = LocalDateTime.now(),
-            description = body.description,
-            metadata = mapOf("sub_type" to userSubscription.name)
+        val paymentId = UUID.randomUUID().toString()
+        val freekassaPaymentRequest = PaymentFormRequestParams(
+            userId = principal.name,
+            orderId = paymentId,
+            email = body.email!!,
+            amount = amount.toBigDecimal(),
+            currency = "RUB",
+            subscriptionId = userSubscription.num,
+            referralCode = body.referralCode,
+            multiply = body.multiply ?: 1
         )
-        val paymentResponse = youKassaClient.createPayment(idempotenceKey, paymentRequest)
+        val paymentUrl = freeKassaClient.createPaymentFormUrl(freekassaPaymentRequest)
 
-        val payment = paymentService.findPayment(paymentResponse.id)
+        val payment = paymentService.findPayment(paymentId)
         if (payment == null) {
             paymentService.savePayment(
-                paymentResponse.id,
+                paymentId,
                 principal.name,
-                paymentResponse.status,
-                paymentResponse.paid,
-                paymentResponse.amount.value,
+                "pending",
+                false,
+                amount,
                 userSubscription.num,
                 body.multiply ?: 1,
                 referralCode = body.referralCode
@@ -105,12 +117,12 @@ class PaymentController(
 
         return ResponseEntity.ok().body(
             PaymentCreateResponse(
-                paymentId = paymentResponse.id,
-                status = paymentResponse.status,
-                paid = paymentResponse.paid,
-                amount = paymentResponse.amount.value,
-                currency = paymentResponse.amount.currency,
-                confirmationUrl = paymentResponse.confirmation.confirmationUrl
+                paymentId = paymentId,
+                status = "pending",
+                paid = false,
+                amount = amount,
+                currency = "RUB",
+                confirmationUrl = paymentUrl
             )
         )
     }
@@ -148,4 +160,42 @@ class PaymentController(
             )
         )
     }
+
+    @PostMapping(
+        "/payment/fk/callback",
+        consumes = [MediaType.APPLICATION_FORM_URLENCODED_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE]
+    )
+    suspend fun callbackPayment(
+        exchange: ServerWebExchange,
+    ): ResponseEntity<String> {
+        val formData = exchange.formData.awaitSingle()
+        val merchantId = formData["MERCHANT_ID"]?.singleOrNull()
+        val amount = formData["AMOUNT"]?.singleOrNull()
+        val orderId = formData["MERCHANT_ORDER_ID"]?.singleOrNull()
+        val paymentId = formData["us_paymentid"]?.singleOrNull()
+        val curId = formData["CUR_ID"]?.singleOrNull()
+        val userId = formData["us_userid"]?.singleOrNull()
+        val subscriptionId = formData["us_subscriptionid"]?.singleOrNull()
+        log.info { "Callback freekassa payment. Body=$formData" }
+        if (merchantId == null || amount == null || orderId == null || curId == null
+            || userId == null || subscriptionId == null || paymentId == null
+        ) {
+            log.warn { "Callback payment. Bad request. Body=$formData" }
+            return ResponseEntity.badRequest().build()
+        }
+        val md5Hash =
+            DigestUtils.md5Hex("$merchantId:$amount:${freeKassaProperties.secretWordSecond}:$orderId")
+        if (formData["SIGN"]?.single() != md5Hash) {
+            log.warn { "Callback payment sign is not valid. expected=$md5Hash; actual=${formData["SIGN"]?.single()}" }
+            return ResponseEntity.badRequest().build()
+        }
+        paymentService.callbackPayment(
+            paymentId,
+            userId,
+            curId,
+        )
+
+        return ResponseEntity.ok("YES")
+    }
+
 }
