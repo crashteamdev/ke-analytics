@@ -16,6 +16,7 @@ import dev.crashteam.keanalytics.repository.mongo.CategoryRepository
 import dev.crashteam.keanalytics.repository.mongo.ReportRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
 import dev.crashteam.keanalytics.service.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
@@ -394,6 +395,40 @@ class MarketDbApiV2Controller(
                     this.productCount = categoryOverallAnalytics.productCount
                     this.productZeroSalesCount = categoryOverallAnalytics.productZeroSalesCount
                     this.sellersZeroSalesCount = categoryOverallAnalytics.sellersZeroSalesCount
+                }).toMono()
+            }
+        }
+    }
+
+    @ExperimentalCoroutinesApi
+    override fun sellerOverallInfo(
+        xRequestID: String,
+        X_API_KEY: String,
+        sellerLink: String,
+        fromTime: OffsetDateTime,
+        toTime: OffsetDateTime,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<SellerOverallInfo200Response>> {
+        val fromTimeLocalDateTime = fromTime.toLocalDateTime()
+        val toTimeLocalDateTime = toTime.toLocalDateTime()
+        return checkRequestDaysPermission(X_API_KEY, fromTimeLocalDateTime, toTimeLocalDateTime).flatMap { access ->
+            if (access == false) {
+                ResponseEntity.status(HttpStatus.FORBIDDEN).build<SellerOverallInfo200Response>().toMono()
+            } else {
+                val categoryOverallAnalytics = productServiceAnalytics.getSellerAnalytics(sellerLink, fromTimeLocalDateTime, toTimeLocalDateTime)
+                    ?: return@flatMap ResponseEntity.notFound().build<SellerOverallInfo200Response>().toMono()
+                return@flatMap ResponseEntity.ok(SellerOverallInfo200Response().apply {
+                    this.averagePrice = categoryOverallAnalytics.averagePrice.setScale(2, RoundingMode.HALF_UP).toDouble()
+                    this.orderCount = categoryOverallAnalytics.orderCount
+                    this.productCount = categoryOverallAnalytics.productCount
+                    this.revenue = categoryOverallAnalytics.revenue.setScale(2, RoundingMode.HALF_UP).toDouble()
+                    this.productCountWithSales = categoryOverallAnalytics.productCountWithSales
+                    this.salesDynamic = categoryOverallAnalytics.salesDynamic.map { chSellerOrderDynamic ->
+                        DynamicSales().apply {
+                            date = chSellerOrderDynamic.date
+                            orderAmount = chSellerOrderDynamic.orderAmount
+                        }
+                    }
                 }).toMono()
             }
         }

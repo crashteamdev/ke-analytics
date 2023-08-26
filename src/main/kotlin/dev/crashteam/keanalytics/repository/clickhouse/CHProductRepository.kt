@@ -1,12 +1,7 @@
 package dev.crashteam.keanalytics.repository.clickhouse
 
-import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryOverallInfoMapper
-import dev.crashteam.keanalytics.repository.clickhouse.mapper.ProductSalesHistoryMapper
-import dev.crashteam.keanalytics.repository.clickhouse.mapper.ProductsSalesMapper
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryOverallInfo
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductSalesHistory
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductsSales
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChKeProduct
+import dev.crashteam.keanalytics.repository.clickhouse.mapper.*
+import dev.crashteam.keanalytics.repository.clickhouse.model.*
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.BatchPreparedStatementSetter
 import org.springframework.jdbc.core.JdbcTemplate
@@ -150,7 +145,7 @@ class CHProductRepository(
             SELECT round((sum(price) / 100) / count(), 2)          AS avg_price,
                    sum(revenue) / 100                              AS revenue,
                    sum(order_amount)                               AS order_count,
-                      any(seller_count)                               AS seller_counts,
+                   any(seller_count)                               AS seller_counts,
                    any(product_count)                              AS product_counts,
                    round(sum(order_amount) / any(seller_count), 3) AS sales_per_seller,
                    (SELECT count()
@@ -158,7 +153,7 @@ class CHProductRepository(
                              SELECT sum(order_amount) AS order_amount
                              FROM (
                                          SELECT total_orders_amount_max - total_orders_amount_min AS order_amount,
-                                             seller_identifier                                 AS seller_id
+                                                seller_identifier                                 AS seller_id
                                       FROM (SELECT min(total_orders_amount) AS total_orders_amount_min,
                                                    max(total_orders_amount) AS total_orders_amount_max,
                                                    max(seller_id)           AS seller_identifier
@@ -195,6 +190,107 @@ class CHProductRepository(
                         GROUP BY product_id))
             WHERE order_amount > 0
         """.trimIndent()
+        private val GET_SELLER_OVERALL_INFO = """
+            WITH product_sales AS
+                (SELECT date,
+                        product_id,
+                        sku_id,
+                        title,
+                        if(available_amount_diff < 0 OR available_amount_diff > 0 AND total_orders_amount_diff = 0,
+                           total_orders_amount_diff, available_amount_diff)                  AS order_amount,
+                        if(available_amount_diff < 0 OR available_amount_diff > 0 AND total_orders_amount_diff = 0,
+                           total_orders_amount_diff, available_amount_diff) * purchase_price AS revenue,
+                        purchase_price,
+                        if(available_amount_diff < 0 OR available_amount_diff > 0 AND total_orders_amount_diff = 0,
+                           total_orders_amount_diff, available_amount_diff) * purchase_price AS sales_amount,
+                        available_amount
+                 FROM (
+                          SELECT date,
+                                 product_id,
+                                 sku_id,
+                                 title,
+                                 available_amount_max                              AS available_amount,
+                                 available_amount_max - available_amount_min       AS available_amount_diff,
+                                 total_orders_amount_max - total_orders_amount_min AS total_orders_amount_diff,
+                                 purchase_price
+                          FROM (
+                                   SELECT date,
+                                          product_id,
+                                          sku_id,
+                                          any(title)               AS title,
+                                          min(available_amount)    AS available_amount_min,
+                                          max(available_amount)    AS available_amount_max,
+                                          min(total_orders_amount) AS total_orders_amount_min,
+                                          max(total_orders_amount) AS total_orders_amount_max,
+                                          any(purchase_price)      AS purchase_price
+                                   FROM kazanex.product
+                                   WHERE seller_link = ?
+                                     AND timestamp BETWEEN ? AND ?
+                                   GROUP BY product_id, sku_id, toDate(timestamp) AS date
+                                   ORDER BY date
+                                   )
+                          ))
+
+            SELECT sum(order_amount_sum)                                     AS order_amount,
+                   sum(revenue) / 100                                        AS revenue,
+                   count(product_id)                                         AS product_count,
+                   countIf(order_amount_sum > 0)                                 AS product_with_sales,
+                   round((sum(avg_price) / 100) / countIf(order_amount_sum > 0)) AS avg_price
+            FROM (
+                     SELECT product_id,
+                            any(title)               AS title,
+                            sum(order_amount)        AS order_amount_sum,
+                            sum(revenue)             AS revenue,
+                            max(available_amount)    AS last_available_amount,
+                            avg(purchase_price)      AS avg_price
+                     FROM product_sales s
+                     GROUP BY product_id
+                     )
+        """.trimIndent()
+        private val GET_SELLER_ORDER_DYNAMIC = """
+            WITH product_sales AS
+                (SELECT date,
+                        product_id,
+                        sku_id,
+                        title,
+                        if(available_amount_diff < 0 OR available_amount_diff > 0 AND total_orders_amount_diff = 0,
+                           total_orders_amount_diff, available_amount_diff)                  AS order_amount,
+                        if(available_amount_diff < 0 OR available_amount_diff > 0 AND total_orders_amount_diff = 0,
+                           total_orders_amount_diff, available_amount_diff) * purchase_price AS revenue,
+                        purchase_price,
+                        if(available_amount_diff < 0 OR available_amount_diff > 0 AND total_orders_amount_diff = 0,
+                           total_orders_amount_diff, available_amount_diff) * purchase_price AS sales_amount,
+                        available_amount
+                 FROM (
+                          SELECT date,
+                                 product_id,
+                                 sku_id,
+                                 title,
+                                 available_amount_max                              AS available_amount,
+                                 available_amount_max - available_amount_min       AS available_amount_diff,
+                                 total_orders_amount_max - total_orders_amount_min AS total_orders_amount_diff,
+                                 purchase_price
+                          FROM (
+                                   SELECT date,
+                                          product_id,
+                                          sku_id,
+                                          any(title)               AS title,
+                                          min(available_amount)    AS available_amount_min,
+                                          max(available_amount)    AS available_amount_max,
+                                          min(total_orders_amount) AS total_orders_amount_min,
+                                          max(total_orders_amount) AS total_orders_amount_max,
+                                          any(purchase_price)      AS purchase_price
+                                   FROM kazanex.product
+                                   WHERE seller_link = ?
+                                     AND timestamp BETWEEN ? AND ?
+                                   GROUP BY product_id, sku_id, toDate(timestamp) AS date
+                                   ORDER BY date
+                                   )
+                          ))
+
+            SELECT date, sum(order_amount) AS order_amount FROM product_sales GROUP BY date
+        """.trimIndent()
+
     }
 
     fun saveProducts(productFetchList: List<ChKeProduct>) {
@@ -244,6 +340,30 @@ class CHProductRepository(
             GET_CATEGORY_OVERALL_INFO,
             CategoryOverallInfoMapper(),
             fromTime, toTime, categoryId, categoryId, categoryId
+        )
+    }
+
+    fun getSellerAnalytics(
+        sellerLink: String,
+        fromTime: LocalDateTime,
+        toTime: LocalDateTime,
+    ): ChSellerOverallInfo? {
+        return jdbcTemplate.queryForObject(
+            GET_SELLER_OVERALL_INFO,
+            SellerOverallInfoMapper(),
+            sellerLink, fromTime, toTime
+        )
+    }
+
+    fun getSellerOrderDynamic(
+        sellerLink: String,
+        fromTime: LocalDateTime,
+        toTime: LocalDateTime,
+    ): List<ChSellerOrderDynamic> {
+        return jdbcTemplate.query(
+            GET_SELLER_ORDER_DYNAMIC,
+            SellerOrderDynamicMapper(),
+            sellerLink, fromTime, toTime
         )
     }
 

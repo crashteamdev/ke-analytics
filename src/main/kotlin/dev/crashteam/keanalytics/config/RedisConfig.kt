@@ -1,6 +1,7 @@
 package dev.crashteam.keanalytics.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import dev.crashteam.keanalytics.client.kazanexpress.model.ProductResponse
@@ -94,20 +95,11 @@ class RedisConfig(
 
                 })).entryTtl(Duration.ofSeconds(120))
             configurationMap[CATEGORY_OVERALL_INFO_CACHE] = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(fromSerializer(object :
-                    RedisSerializer<Any> {
-                    override fun serialize(t: Any?): ByteArray {
-                        return jacksonObjectMapper().writeValueAsBytes(t)
-                    }
-
-                    override fun deserialize(bytes: ByteArray?): Any? {
-                        return if (bytes != null) {
-                            jacksonObjectMapper().readValue(bytes, ChCategoryOverallInfo::class.java)
-                        } else null
-                    }
-
-                }))
-                .entryTtl(Duration.ofSeconds(86400))
+                .serializeValuesWith(redisJsonSerializer(ChCategoryOverallInfo::class.java))
+                .entryTtl(Duration.ofSeconds(21600))
+            configurationMap[SELLER_OVERALL_INFO_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
+                .serializeValuesWith(redisJsonSerializer(ChCategoryOverallInfo::class.java))
+                .entryTtl(Duration.ofSeconds(21600))
             builder.withInitialCacheConfigurations(configurationMap)
         }
     }
@@ -189,8 +181,27 @@ class RedisConfig(
         return StreamReceiver.create(redisConnectionFactory, options)
     }
 
+    private inline fun <reified T> redisJsonSerializer(
+        valueClass: Class<T>
+    ): RedisSerializationContext.SerializationPair<Any> {
+        val objectMapper = jacksonObjectMapper().registerModules(JavaTimeModule())
+        return fromSerializer(object : RedisSerializer<Any> {
+            override fun serialize(t: Any?): ByteArray {
+                return objectMapper.writeValueAsBytes(t)
+            }
+
+            override fun deserialize(bytes: ByteArray?): Any? {
+                return if (bytes != null) {
+                    objectMapper.readValue(bytes, valueClass)
+                } else null
+            }
+
+        })
+    }
+
     companion object {
         const val KE_CLIENT_CACHE_NAME = "ke-products-info"
         const val CATEGORY_OVERALL_INFO_CACHE = "ke-category-overall-info"
+        const val SELLER_OVERALL_INFO_CACHE_NAME = "seller-overall-info"
     }
 }
