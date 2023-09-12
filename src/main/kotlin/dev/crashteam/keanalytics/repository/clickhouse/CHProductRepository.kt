@@ -422,7 +422,7 @@ class CHProductRepository(
             ps.setString(l++, product.photoKey)
             ps.setObject(
                 l++,
-                product.characteristics.stream().collect(Collectors.toMap({ it.type }, { it.title }))
+                product.characteristics.stream().collect(Collectors.toMap({ it.type }, { it.title }) { _, u -> u })
             )
             ps.setLong(l++, product.sellerId)
             ps.setLong(l++, product.sellerAccountId)
