@@ -11,7 +11,8 @@ class SellerOverallInfoMapper : RowMapper<ChSellerOverallInfo> {
             revenue = rs.getBigDecimal("revenue"),
             orderCount = rs.getLong("order_amount"),
             productCount = rs.getLong("product_count"),
-            productCountWithSales = rs.getLong("product_with_sales")
+            productCountWithSales = rs.getLong("product_with_sales"),
+            productCountWithoutSales = rs.getLong("product_without_sales"),
         )
     }
 }

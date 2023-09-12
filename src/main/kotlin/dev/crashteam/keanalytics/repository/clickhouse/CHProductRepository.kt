@@ -231,11 +231,12 @@ class CHProductRepository(
                                    )
                           ))
 
-            SELECT sum(order_amount_sum)                                     AS order_amount,
-                   sum(revenue) / 100                                        AS revenue,
-                   count(product_id)                                         AS product_count,
+            SELECT sum(order_amount_sum)                                         AS order_amount,
+                   sum(revenue) / 100                                            AS revenue,
+                   count(product_id)                                             AS product_count,
                    countIf(order_amount_sum > 0)                                 AS product_with_sales,
-                   round((sum(avg_price) / 100) / countIf(order_amount_sum > 0)) AS avg_price
+                   round((sum(avg_price) / 100) / countIf(order_amount_sum > 0)) AS avg_price,
+                   countIf(order_amount_sum <= 0)                                AS product_without_sales
             FROM (
                      SELECT product_id,
                             any(title)               AS title,

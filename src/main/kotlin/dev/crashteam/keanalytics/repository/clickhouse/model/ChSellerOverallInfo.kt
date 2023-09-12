@@ -8,4 +8,5 @@ data class ChSellerOverallInfo(
     val orderCount: Long,
     val productCount: Long,
     val productCountWithSales: Long,
+    val productCountWithoutSales: Long,
 )
