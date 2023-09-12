@@ -7,6 +7,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import dev.crashteam.keanalytics.client.kazanexpress.model.ProductResponse
 import dev.crashteam.keanalytics.config.properties.RedisProperties
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryOverallInfo
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChSellerOverallInfo
 import dev.crashteam.keanalytics.repository.redis.ApiKeyUserSessionInfo
 import mu.KotlinLogging
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer
@@ -98,7 +99,7 @@ class RedisConfig(
                 .serializeValuesWith(redisJsonSerializer(ChCategoryOverallInfo::class.java))
                 .entryTtl(Duration.ofSeconds(21600))
             configurationMap[SELLER_OVERALL_INFO_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(redisJsonSerializer(ChCategoryOverallInfo::class.java))
+                .serializeValuesWith(redisJsonSerializer(ChSellerOverallInfo::class.java))
                 .entryTtl(Duration.ofSeconds(21600))
             builder.withInitialCacheConfigurations(configurationMap)
         }
