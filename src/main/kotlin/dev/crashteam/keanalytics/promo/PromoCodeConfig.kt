@@ -11,7 +11,7 @@ class PromoCodeConfig(
 
     object Charset {
         const val ALPHABETIC = "ABCDEFGHIJKLMNPQRSTUVWXYZ"
-        const val ALPHANUMERIC = "123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNPQRSTUVWXYZ"
+        const val ALPHANUMERIC = "123456789abcdefghijkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ"
         const val NUMBERS = "0123456789"
     }
 
