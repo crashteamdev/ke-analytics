@@ -14,11 +14,11 @@ class PriceCalculatorFactory(
 
     fun createPriceCalculator(priceCalculatorOption: PriceCalculatorOption): PriceCalculator {
         return if (priceCalculatorOption.promoCode != null) {
-            PromoCodePriceCalculator(promoCodeRepository)
+            PromoCodePriceCalculator(priceCalculatorOption, promoCodeRepository)
         } else if (priceCalculatorOption.referralCode != null) {
-            ReferralCodePriceCalculator(userRepository, referralCodeRepository)
+            ReferralCodePriceCalculator(priceCalculatorOption, userRepository, referralCodeRepository)
         } else {
-            SimplePriceCalculator()
+            SimplePriceCalculator(priceCalculatorOption)
         }
     }
 }

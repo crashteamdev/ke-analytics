@@ -28,7 +28,8 @@ class PromoCodeService(
             useLimit = promoCodeCreateData.useLimit,
             type = promoCodeCreateData.type,
             discount = promoCodeCreateData.discount,
-            additionalDays = promoCodeCreateData.additionalDays
+            additionalDays = promoCodeCreateData.additionalDays,
+            numberOfUses = 0
         )
         return promoCodeRepository.save(promoCodeDocument)
     }
