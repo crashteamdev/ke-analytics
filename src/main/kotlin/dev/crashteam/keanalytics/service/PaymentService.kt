@@ -15,6 +15,10 @@ import dev.crashteam.keanalytics.service.model.CallbackPaymentAdditionalInfo
 import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import mu.KotlinLogging
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate
+import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import reactor.core.publisher.Mono
@@ -31,7 +35,8 @@ class PaymentService(
     val userRepository: UserRepository,
     val referralCodeRepository: ReferralCodeRepository,
     val promoCodeRepository: PromoCodeRepository,
-    val youKassaClient: YooKassaClient
+    val youKassaClient: YooKassaClient,
+    val reactiveMongoTemplate: ReactiveMongoTemplate,
 ) {
 
     suspend fun findPayment(paymentId: String): PaymentDocument? {
@@ -213,16 +218,20 @@ class PaymentService(
     }
 
     private suspend fun callbackPromoCode(promoCode: String, promoCodeType: PromoCodeType): Int {
-        val additionalSubDays = if (promoCodeType == PromoCodeType.ADDITIONAL_DAYS) {
-            val promoCodeDocument = promoCodeRepository.findByCode(promoCode).awaitSingleOrNull()
-            promoCodeDocument?.additionalDays ?: 0
-        } else 0
-        val promoCodeDocument = promoCodeRepository.findByCode(promoCode).awaitSingleOrNull()
-            ?: throw IllegalStateException("promoCode document can't be null")
-        val numberOfUses = promoCodeDocument.numberOfUses + 1
-        promoCodeRepository.save(promoCodeDocument.copy(numberOfUses = numberOfUses)).awaitSingleOrNull()
+        try {
+            val additionalSubDays = if (promoCodeType == PromoCodeType.ADDITIONAL_DAYS) {
+                val promoCodeDocument = promoCodeRepository.findByCode(promoCode).awaitSingleOrNull()
+                promoCodeDocument?.additionalDays ?: 0
+            } else 0
+            val query = Query().apply { addCriteria(Criteria.where("promoCode").`is`(promoCode)) }
+            val update = Update().inc("numberOfUses", 1)
+            reactiveMongoTemplate.findAndModify(query, update, PromoCodeDocument::class.java).awaitSingle()
 
-        return additionalSubDays
+            return additionalSubDays
+        } catch (e: Exception) {
+            log.error(e) { "Failed to callback promoCode" }
+            return 0
+        }
     }
 
 }
