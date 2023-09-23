@@ -15,7 +15,7 @@ class PromoCodePriceCalculator(
         val context = priceCalculatorOption.context
         val promoCodeDocument = promoCodeRepository.findByCode(priceCalculatorOption.promoCode!!).awaitSingleOrNull()
             ?: return context.subscription.price().toBigDecimal()
-        val defaultPrice = context.subscription.price().toBigDecimal()
+        val defaultPrice = context.subscription.price().toBigDecimal() * context.multiply.toLong().toBigDecimal()
         if (promoCodeDocument.validUntil < LocalDateTime.now()) {
             return defaultPrice
         }
@@ -27,7 +27,8 @@ class PromoCodePriceCalculator(
                 if (promoCodeDocument.numberOfUses >= promoCodeDocument.useLimit) {
                     defaultPrice
                 } else {
-                    ((context.subscription.price() * promoCodeDocument.discount!!) / 100).toBigDecimal()
+                    val price = context.subscription.price().toBigDecimal() * context.multiply.toLong().toBigDecimal()
+                    ((price * promoCodeDocument.discount!!.toLong().toBigDecimal()) / BigDecimal.valueOf(100))
                 }
             }
         }
