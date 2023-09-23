@@ -37,6 +37,10 @@ class FreeKassaClient(
             if (paymentFormRequest.referralCode != null) {
                 append("&us_referralcode=${paymentFormRequest.referralCode}")
             }
+            if (paymentFormRequest.promoCode != null && paymentFormRequest.promoCodeType != null) {
+                append("&us_promocode=${paymentFormRequest.promoCode}")
+                append("&us_promocodeType=${paymentFormRequest.promoCodeType.name}")
+            }
         }
     }
 

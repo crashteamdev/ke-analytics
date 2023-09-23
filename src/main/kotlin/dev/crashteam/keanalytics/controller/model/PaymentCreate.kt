@@ -8,5 +8,6 @@ data class PaymentCreate(
     val subscriptionType: Int,
     val multiply: Short? = null,
     val referralCode: String? = null,
+    val promoCode: String? = null,
     val email: String? = null,
 )

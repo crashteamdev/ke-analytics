@@ -1,22 +1,24 @@
 package dev.crashteam.keanalytics.controller
 
-import dev.crashteam.openapi.keanalytics.api.*
-import dev.crashteam.openapi.keanalytics.model.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
-import mu.KotlinLogging
-import dev.crashteam.keanalytics.domain.mongo.ReportDocument
-import dev.crashteam.keanalytics.domain.mongo.ReportStatus
-import dev.crashteam.keanalytics.domain.mongo.ReportType
-import dev.crashteam.keanalytics.domain.mongo.ReportVersion
+import dev.crashteam.keanalytics.domain.mongo.*
 import dev.crashteam.keanalytics.report.ReportFileService
 import dev.crashteam.keanalytics.report.ReportService
 import dev.crashteam.keanalytics.repository.mongo.CategoryRepository
 import dev.crashteam.keanalytics.repository.mongo.ReportRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
-import dev.crashteam.keanalytics.service.*
+import dev.crashteam.keanalytics.service.ProductServiceAnalytics
+import dev.crashteam.keanalytics.service.PromoCodeService
+import dev.crashteam.keanalytics.service.SellerService
+import dev.crashteam.keanalytics.service.UserRestrictionService
+import dev.crashteam.keanalytics.service.model.PromoCodeCreateData
+import dev.crashteam.openapi.keanalytics.api.*
+import dev.crashteam.openapi.keanalytics.model.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import mu.KotlinLogging
+import org.springframework.core.convert.ConversionService
 import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
@@ -30,8 +32,8 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toMono
 import reactor.kotlin.core.publisher.toFlux
-import reactor.kotlin.core.publisher.toMono
 import java.math.RoundingMode
+import java.security.Principal
 import java.time.*
 import java.time.temporal.ChronoUnit
 import java.util.*
@@ -41,8 +43,6 @@ private val log = KotlinLogging.logger {}
 @RestController
 @RequestMapping(path = ["v2"], produces = [MediaType.APPLICATION_JSON_VALUE])
 class MarketDbApiV2Controller(
-    private val categoryService: CategoryService,
-    private val productServiceV2: ProductServiceV2,
     private val sellerService: SellerService,
     private val userRepository: UserRepository,
     private val userRestrictionService: UserRestrictionService,
@@ -51,7 +51,9 @@ class MarketDbApiV2Controller(
     private val reportRepository: ReportRepository,
     private val categoryRepository: CategoryRepository,
     private val productServiceAnalytics: ProductServiceAnalytics,
-) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi {
+    private val promoCodeService: PromoCodeService,
+    private val conversionService: ConversionService,
+) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi, PromoCodeApi {
 
     override fun productSkuHistory(
         xRequestID: String,
@@ -64,7 +66,11 @@ class MarketDbApiV2Controller(
         offset: Int,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<Flux<ProductSkuHistory>>> {
-        return checkRequestDaysPermission(X_API_KEY, fromTime.toLocalDateTime(), toTime.toLocalDateTime()).flatMap { access ->
+        return checkRequestDaysPermission(
+            X_API_KEY,
+            fromTime.toLocalDateTime(),
+            toTime.toLocalDateTime()
+        ).flatMap { access ->
             if (access == false) {
                 return@flatMap ResponseEntity.status(HttpStatus.FORBIDDEN).build<Flux<ProductSkuHistory>>().toMono()
             }
@@ -105,9 +111,14 @@ class MarketDbApiV2Controller(
         toTime: OffsetDateTime,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<Flux<GetProductSales200ResponseInner>>> {
-        return checkRequestDaysPermission(X_API_KEY, fromTime.toLocalDateTime(), toTime.toLocalDateTime()).flatMap { access ->
+        return checkRequestDaysPermission(
+            X_API_KEY,
+            fromTime.toLocalDateTime(),
+            toTime.toLocalDateTime()
+        ).flatMap { access ->
             if (access == false) {
-                return@flatMap ResponseEntity.status(HttpStatus.FORBIDDEN).build<Flux<GetProductSales200ResponseInner>>().toMono()
+                return@flatMap ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .build<Flux<GetProductSales200ResponseInner>>().toMono()
             }
             val productSalesAnalytics = productServiceAnalytics.getProductSalesAnalytics(
                 productIds,
@@ -387,11 +398,13 @@ class MarketDbApiV2Controller(
                     toTimeLocalDateTime
                 ) ?: return@flatMap ResponseEntity.notFound().build<CategoryOverallInfo200Response>().toMono()
                 return@flatMap ResponseEntity.ok(CategoryOverallInfo200Response().apply {
-                    this.averagePrice = categoryOverallAnalytics.averagePrice.setScale(2, RoundingMode.HALF_UP).toDouble()
+                    this.averagePrice =
+                        categoryOverallAnalytics.averagePrice.setScale(2, RoundingMode.HALF_UP).toDouble()
                     this.revenue = categoryOverallAnalytics.revenue?.setScale(2, RoundingMode.HALF_UP)?.toDouble()
                     this.orderCount = categoryOverallAnalytics.orderCount
                     this.sellerCount = categoryOverallAnalytics.sellerCount
-                    this.salesPerSeller = categoryOverallAnalytics.salesPerSeller.setScale(2, RoundingMode.HALF_UP).toDouble()
+                    this.salesPerSeller =
+                        categoryOverallAnalytics.salesPerSeller.setScale(2, RoundingMode.HALF_UP).toDouble()
                     this.productCount = categoryOverallAnalytics.productCount
                     this.productZeroSalesCount = categoryOverallAnalytics.productZeroSalesCount
                     this.sellersZeroSalesCount = categoryOverallAnalytics.sellersZeroSalesCount
@@ -415,10 +428,12 @@ class MarketDbApiV2Controller(
             if (access == false) {
                 ResponseEntity.status(HttpStatus.FORBIDDEN).build<SellerOverallInfo200Response>().toMono()
             } else {
-                val categoryOverallAnalytics = productServiceAnalytics.getSellerAnalytics(sellerLink, fromTimeLocalDateTime, toTimeLocalDateTime)
-                    ?: return@flatMap ResponseEntity.notFound().build<SellerOverallInfo200Response>().toMono()
+                val categoryOverallAnalytics =
+                    productServiceAnalytics.getSellerAnalytics(sellerLink, fromTimeLocalDateTime, toTimeLocalDateTime)
+                        ?: return@flatMap ResponseEntity.notFound().build<SellerOverallInfo200Response>().toMono()
                 return@flatMap ResponseEntity.ok(SellerOverallInfo200Response().apply {
-                    this.averagePrice = categoryOverallAnalytics.averagePrice.setScale(2, RoundingMode.HALF_UP).toDouble()
+                    this.averagePrice =
+                        categoryOverallAnalytics.averagePrice.setScale(2, RoundingMode.HALF_UP).toDouble()
                     this.orderCount = categoryOverallAnalytics.orderCount
                     this.productCount = categoryOverallAnalytics.productCount
                     this.revenue = categoryOverallAnalytics.revenue.setScale(2, RoundingMode.HALF_UP).toDouble()
@@ -430,6 +445,43 @@ class MarketDbApiV2Controller(
                         }
                     }
                 }).toMono()
+            }
+        }
+    }
+
+    override fun createPromoCode(
+        xRequestID: String,
+        promoCode: Mono<PromoCode>,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<PromoCode>> {
+        return exchange.getPrincipal<Principal>().flatMap { principal ->
+            promoCode.flatMap { promoCode ->
+                return@flatMap userRepository.findByUserId(principal.name).flatMap { userDocument ->
+                    if (userDocument.role != UserRole.ADMIN) {
+                        return@flatMap ResponseEntity.status(HttpStatus.FORBIDDEN).build<PromoCode>().toMono()
+                    }
+                    promoCodeService.createPromoCode(
+                        PromoCodeCreateData(
+                            description = promoCode.description,
+                            validUntil = promoCode.validUntil.toLocalDateTime(),
+                            useLimit = promoCode.useLimit,
+                            type = when (promoCode.context.type) {
+                                PromoCodeContext.TypeEnum.ADDITIONAL_TIME -> PromoCodeType.ADDITIONAL_DAYS
+                                PromoCodeContext.TypeEnum.DISCOUNT -> PromoCodeType.DISCOUNT
+                                else -> PromoCodeType.DISCOUNT
+                            },
+                            discount = if (promoCode.context is DiscountPromoCode) {
+                                (promoCode.context as DiscountPromoCode).discount.toShort()
+                            } else null,
+                            additionalDays = if (promoCode.context is AdditionalTimePromoCode) {
+                                (promoCode.context as AdditionalTimePromoCode).additionalDays
+                            } else null,
+                            prefix = promoCode.prefix,
+                        )
+                    ).flatMap { promoCodeDocument ->
+                        ResponseEntity.ok(conversionService.convert(promoCodeDocument, PromoCode::class.java)).toMono()
+                    }
+                }
             }
         }
     }

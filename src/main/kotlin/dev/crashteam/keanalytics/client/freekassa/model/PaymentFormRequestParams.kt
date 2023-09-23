@@ -1,5 +1,6 @@
 package dev.crashteam.keanalytics.client.freekassa.model
 
+import dev.crashteam.keanalytics.domain.mongo.PromoCodeType
 import java.math.BigDecimal
 
 data class PaymentFormRequestParams(
@@ -10,5 +11,7 @@ data class PaymentFormRequestParams(
     val currency: String,
     val subscriptionId: Int,
     val referralCode: String? = null,
+    val promoCode: String? = null,
+    val promoCodeType: PromoCodeType? = null,
     val multiply: Short = 1
 )
