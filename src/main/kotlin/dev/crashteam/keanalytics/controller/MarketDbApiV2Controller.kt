@@ -10,6 +10,7 @@ import dev.crashteam.keanalytics.service.ProductServiceAnalytics
 import dev.crashteam.keanalytics.service.PromoCodeService
 import dev.crashteam.keanalytics.service.SellerService
 import dev.crashteam.keanalytics.service.UserRestrictionService
+import dev.crashteam.keanalytics.service.model.PromoCodeCheckCode
 import dev.crashteam.keanalytics.service.model.PromoCodeCreateData
 import dev.crashteam.openapi.keanalytics.api.*
 import dev.crashteam.openapi.keanalytics.model.*
@@ -32,6 +33,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toMono
 import reactor.kotlin.core.publisher.toFlux
+import reactor.kotlin.core.publisher.toMono
 import java.math.RoundingMode
 import java.security.Principal
 import java.time.*
@@ -56,7 +58,7 @@ class MarketDbApiV2Controller(
 ) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi, PromoCodeApi {
 
     override fun productSkuHistory(
-        xRequestID: String,
+        xRequestID: UUID,
         X_API_KEY: String,
         productId: Long,
         skuId: Long,
@@ -104,7 +106,7 @@ class MarketDbApiV2Controller(
     }
 
     override fun getProductSales(
-        xRequestID: String,
+        xRequestID: UUID,
         X_API_KEY: String,
         productIds: MutableList<Long>,
         fromTime: OffsetDateTime,
@@ -379,7 +381,7 @@ class MarketDbApiV2Controller(
     }
 
     override fun categoryOverallInfo(
-        xRequestID: String,
+        xRequestID: UUID,
         X_API_KEY: String,
         categoryId: Long,
         fromTime: OffsetDateTime,
@@ -415,7 +417,7 @@ class MarketDbApiV2Controller(
 
     @ExperimentalCoroutinesApi
     override fun sellerOverallInfo(
-        xRequestID: String,
+        xRequestID: UUID,
         X_API_KEY: String,
         sellerLink: String,
         fromTime: OffsetDateTime,
@@ -450,7 +452,7 @@ class MarketDbApiV2Controller(
     }
 
     override fun createPromoCode(
-        xRequestID: String,
+        xRequestID: UUID,
         promoCode: Mono<PromoCode>,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<PromoCode>> {
@@ -482,6 +484,27 @@ class MarketDbApiV2Controller(
                         ResponseEntity.ok(conversionService.convert(promoCodeDocument, PromoCode::class.java)).toMono()
                     }
                 }
+            }
+        }
+    }
+
+    override fun checkPromoCode(
+        xRequestID: UUID,
+        promoCode: String,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<PromoCodeCheckResult>> {
+        return exchange.getPrincipal<Principal>().flatMap { _ ->
+            promoCodeService.checkPromoCode(promoCode).flatMap { promoCodeCheckResult ->
+                val codeCheckResult = PromoCodeCheckResult().apply {
+                    code = when (promoCodeCheckResult.checkCode) {
+                        PromoCodeCheckCode.INVALID_USE_LIMIT -> PromoCodeCheckResult.CodeEnum.INVALIDPROMOCODEUSELIMIT
+                        PromoCodeCheckCode.INVALID_DATE_LIMIT -> PromoCodeCheckResult.CodeEnum.INVALIDPROMOCODEDATE
+                        PromoCodeCheckCode.NOT_FOUND -> PromoCodeCheckResult.CodeEnum.NOTFOUNDPROMOCODE
+                        PromoCodeCheckCode.VALID -> PromoCodeCheckResult.CodeEnum.VALIDPROMOCODE
+                    }
+                    message = promoCodeCheckResult.description
+                }
+                ResponseEntity.ok(codeCheckResult).toMono()
             }
         }
     }

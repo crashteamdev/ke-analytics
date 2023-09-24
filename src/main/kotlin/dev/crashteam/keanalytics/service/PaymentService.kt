@@ -218,7 +218,7 @@ class PaymentService(
     }
 
     private suspend fun callbackPromoCode(promoCode: String, promoCodeType: PromoCodeType): Int {
-        try {
+        return try {
             val additionalSubDays = if (promoCodeType == PromoCodeType.ADDITIONAL_DAYS) {
                 val promoCodeDocument = promoCodeRepository.findByCode(promoCode).awaitSingleOrNull()
                 promoCodeDocument?.additionalDays ?: 0
@@ -227,10 +227,10 @@ class PaymentService(
             val update = Update().inc("numberOfUses", 1)
             reactiveMongoTemplate.findAndModify(query, update, PromoCodeDocument::class.java).awaitSingle()
 
-            return additionalSubDays
+            additionalSubDays
         } catch (e: Exception) {
             log.error(e) { "Failed to callback promoCode" }
-            return 0
+            0
         }
     }
 
