@@ -1,21 +1,24 @@
 package dev.crashteam.keanalytics.service
 
-import kotlinx.coroutines.reactor.awaitSingle
-import kotlinx.coroutines.reactor.awaitSingleOrNull
-import mu.KotlinLogging
 import dev.crashteam.keanalytics.client.yookassa.YooKassaClient
 import dev.crashteam.keanalytics.client.yookassa.model.PaymentAmount
 import dev.crashteam.keanalytics.client.yookassa.model.PaymentConfirmation
 import dev.crashteam.keanalytics.client.yookassa.model.PaymentRequest
 import dev.crashteam.keanalytics.client.yookassa.model.PaymentResponse
-import dev.crashteam.keanalytics.domain.mongo.PaymentDocument
-import dev.crashteam.keanalytics.domain.mongo.SubscriptionDocument
-import dev.crashteam.keanalytics.domain.mongo.UserDocument
-import dev.crashteam.keanalytics.domain.mongo.UserSubscription
+import dev.crashteam.keanalytics.domain.mongo.*
 import dev.crashteam.keanalytics.extensions.mapToSubscription
 import dev.crashteam.keanalytics.repository.mongo.PaymentRepository
+import dev.crashteam.keanalytics.repository.mongo.PromoCodeRepository
 import dev.crashteam.keanalytics.repository.mongo.ReferralCodeRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
+import dev.crashteam.keanalytics.service.model.CallbackPaymentAdditionalInfo
+import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingleOrNull
+import mu.KotlinLogging
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate
+import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import reactor.core.publisher.Mono
@@ -31,7 +34,9 @@ class PaymentService(
     val paymentRepository: PaymentRepository,
     val userRepository: UserRepository,
     val referralCodeRepository: ReferralCodeRepository,
-    val youKassaClient: YooKassaClient
+    val promoCodeRepository: PromoCodeRepository,
+    val youKassaClient: YooKassaClient,
+    val reactiveMongoTemplate: ReactiveMongoTemplate,
 ) {
 
     suspend fun findPayment(paymentId: String): PaymentDocument? {
@@ -174,6 +179,7 @@ class PaymentService(
         paymentId: String,
         userId: String,
         currencyId: String,
+        paymentAdditionalInfo: CallbackPaymentAdditionalInfo? = null,
     ) {
         val payment = findPayment(paymentId)!!
         val user = userRepository.findByUserId(userId).awaitSingleOrNull()
@@ -183,9 +189,14 @@ class PaymentService(
                 user!!, userSubscription, paymentId, true, "success"
             )
         } else {
-            val subDays = if (payment.multiply != null && payment.multiply > 1) {
+            var subDays = if (payment.multiply != null && payment.multiply > 1) {
                 30 * payment.multiply
             } else 30
+            if (paymentAdditionalInfo != null) {
+                val additionalSubDays =
+                    callbackPromoCode(paymentAdditionalInfo.promoCode, paymentAdditionalInfo.promoCodeType)
+                subDays += additionalSubDays
+            }
             if (userSubscription.price().toBigDecimal() != payment.amount && payment.multiply == null) {
                 throw IllegalStateException(
                     "Wrong payment amount. subscriptionPrice=${userSubscription.price()};" +
@@ -203,6 +214,23 @@ class PaymentService(
                 referralCode = payment.referralCode,
                 currencyId = currencyId
             )
+        }
+    }
+
+    private suspend fun callbackPromoCode(promoCode: String, promoCodeType: PromoCodeType): Int {
+        return try {
+            val additionalSubDays = if (promoCodeType == PromoCodeType.ADDITIONAL_DAYS) {
+                val promoCodeDocument = promoCodeRepository.findByCode(promoCode).awaitSingleOrNull()
+                promoCodeDocument?.additionalDays ?: 0
+            } else 0
+            val query = Query().apply { addCriteria(Criteria.where("promoCode").`is`(promoCode)) }
+            val update = Update().inc("numberOfUses", 1)
+            reactiveMongoTemplate.findAndModify(query, update, PromoCodeDocument::class.java).awaitSingle()
+
+            additionalSubDays
+        } catch (e: Exception) {
+            log.error(e) { "Failed to callback promoCode" }
+            0
         }
     }
 

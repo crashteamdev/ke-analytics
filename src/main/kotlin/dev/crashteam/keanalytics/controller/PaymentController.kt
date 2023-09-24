@@ -1,26 +1,25 @@
 package dev.crashteam.keanalytics.controller
 
+import dev.crashteam.keanalytics.calculator.PriceCalculatorContext
+import dev.crashteam.keanalytics.calculator.PriceCalculatorFactory
+import dev.crashteam.keanalytics.calculator.PriceCalculatorOption
 import dev.crashteam.keanalytics.client.freekassa.FreeKassaClient
-import dev.crashteam.keanalytics.client.freekassa.model.FreeKassaPaymentRequestParams
 import dev.crashteam.keanalytics.client.freekassa.model.PaymentFormRequestParams
-import kotlinx.coroutines.reactor.awaitSingleOrNull
-import mu.KotlinLogging
-import dev.crashteam.keanalytics.client.yookassa.YooKassaClient
-import dev.crashteam.keanalytics.client.yookassa.model.PaymentAmount
-import dev.crashteam.keanalytics.client.yookassa.model.PaymentConfirmation
-import dev.crashteam.keanalytics.client.yookassa.model.PaymentRequest
 import dev.crashteam.keanalytics.config.properties.FreeKassaProperties
 import dev.crashteam.keanalytics.controller.model.PaymentCreate
 import dev.crashteam.keanalytics.controller.model.PaymentCreateResponse
 import dev.crashteam.keanalytics.controller.model.PaymentSubscriptionUpgradeCreate
-import dev.crashteam.keanalytics.domain.mongo.AdvancedSubscription
-import dev.crashteam.keanalytics.domain.mongo.ProSubscription
+import dev.crashteam.keanalytics.domain.mongo.PromoCodeType
 import dev.crashteam.keanalytics.extensions.mapToSubscription
+import dev.crashteam.keanalytics.repository.mongo.PromoCodeRepository
 import dev.crashteam.keanalytics.repository.mongo.ReferralCodeRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
 import dev.crashteam.keanalytics.service.PaymentService
 import dev.crashteam.keanalytics.service.UserService
+import dev.crashteam.keanalytics.service.model.CallbackPaymentAdditionalInfo
 import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingleOrNull
+import mu.KotlinLogging
 import org.apache.commons.codec.digest.DigestUtils
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -39,9 +38,9 @@ class PaymentController(
     private val freeKassaProperties: FreeKassaProperties,
     private val freeKassaClient: FreeKassaClient,
     private val paymentService: PaymentService,
-    private val userRepository: UserRepository,
-    private val referralCodeRepository: ReferralCodeRepository,
-    private val userService: UserService
+    private val userService: UserService,
+    private val priceCalculatorFactory: PriceCalculatorFactory,
+    private val promoCodeRepository: PromoCodeRepository,
 ) {
 
     @PostMapping("/payment")
@@ -55,48 +54,29 @@ class PaymentController(
         if (BigDecimal(body.amount) != BigDecimal(userSubscription.price()).setScale(2)) {
             return ResponseEntity.badRequest().build()
         }
-        val userDocument = userRepository.findByUserId(principal.name).awaitSingleOrNull()
-        val isUserCanUseReferral = if (body.referralCode != null && body.referralCode.isNotBlank()) {
-            val userReferralCode = referralCodeRepository.findByUserId(principal.name).awaitSingleOrNull()
-            val inviteReferralCode = referralCodeRepository.findByCode(body.referralCode).awaitSingleOrNull()
-            log.info { "User referral code vs request code. ${userReferralCode?.code}=${body.referralCode}" }
-            inviteReferralCode != null &&
-                    userReferralCode?.code != inviteReferralCode.code &&
-                    userDocument?.subscription == null
-        } else false
-        log.info { "IsUserCanUseReferral code: $isUserCanUseReferral" }
-        val amount = if (body.multiply != null && body.multiply > 1) {
-            val multipliedAmount = BigDecimal(body.amount) * BigDecimal.valueOf(body.multiply.toLong())
-            val discount = if (body.multiply == 3.toShort()) {
-                when (userSubscription) {
-                    AdvancedSubscription -> {
-                        BigDecimal(0.15)
-                    }
-                    ProSubscription -> {
-                        BigDecimal(0.20)
-                    }
-                    else -> BigDecimal(0.10)
-                }
-            } else if (body.multiply >= 6) {
-                BigDecimal(0.30)
-            } else BigDecimal(0.10)
-            (multipliedAmount - (multipliedAmount * discount)).toLong().toString()
-        } else if (body.referralCode != null && body.referralCode.isNotBlank()) {
-            if (isUserCanUseReferral) {
-                (BigDecimal(body.amount) - (BigDecimal(body.amount) * BigDecimal(0.15))).toLong().toString()
-            } else body.amount
-        } else {
-            body.amount
-        }
+        val priceCalculator =
+            priceCalculatorFactory.createPriceCalculator(
+                PriceCalculatorOption(
+                    body.promoCode,
+                    body.referralCode,
+                    context = PriceCalculatorContext(principal.name, body.multiply ?: 1, userSubscription)
+                )
+            )
+        val price = priceCalculator.calculatePrice()
         val paymentId = UUID.randomUUID().toString()
+        val promoCodeDocument = if (body.promoCode != null) {
+            promoCodeRepository.findByCode(body.promoCode).awaitSingleOrNull()
+        } else null
         val freekassaPaymentRequest = PaymentFormRequestParams(
             userId = principal.name,
             orderId = paymentId,
             email = body.email!!,
-            amount = amount.toBigDecimal(),
+            amount = price,
             currency = "RUB",
             subscriptionId = userSubscription.num,
             referralCode = body.referralCode,
+            promoCode = body.promoCode,
+            promoCodeType = promoCodeDocument?.type,
             multiply = body.multiply ?: 1
         )
         val paymentUrl = freeKassaClient.createPaymentFormUrl(freekassaPaymentRequest)
@@ -108,7 +88,7 @@ class PaymentController(
                 principal.name,
                 "pending",
                 false,
-                amount,
+                price.toString(),
                 userSubscription.num,
                 body.multiply ?: 1,
                 referralCode = body.referralCode
@@ -120,7 +100,7 @@ class PaymentController(
                 paymentId = paymentId,
                 status = "pending",
                 paid = false,
-                amount = amount,
+                amount = price.toString(),
                 currency = "RUB",
                 confirmationUrl = paymentUrl
             )
@@ -176,6 +156,8 @@ class PaymentController(
         val curId = formData["CUR_ID"]?.singleOrNull()
         val userId = formData["us_userid"]?.singleOrNull()
         val subscriptionId = formData["us_subscriptionid"]?.singleOrNull()
+        val promoCode = formData["us_promocode"]?.singleOrNull()
+        val promoCodeType = formData["us_promocodeType"]?.singleOrNull()
         log.info { "Callback freekassa payment. Body=$formData" }
         if (merchantId == null || amount == null || orderId == null || curId == null
             || userId == null || subscriptionId == null || paymentId == null
@@ -189,10 +171,17 @@ class PaymentController(
             log.warn { "Callback payment sign is not valid. expected=$md5Hash; actual=${formData["SIGN"]?.single()}" }
             return ResponseEntity.badRequest().build()
         }
+        val paymentAdditionalInfo = if (promoCode != null && promoCodeType != null) {
+            CallbackPaymentAdditionalInfo(promoCode, PromoCodeType.valueOf(promoCodeType))
+        } else {
+            null
+        }
+        log.debug { "Callback payment additional info: $paymentAdditionalInfo" }
         paymentService.callbackPayment(
             paymentId,
             userId,
             curId,
+            paymentAdditionalInfo = paymentAdditionalInfo
         )
 
         return ResponseEntity.ok("YES")

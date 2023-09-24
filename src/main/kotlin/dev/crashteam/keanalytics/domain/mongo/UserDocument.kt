@@ -14,6 +14,7 @@ data class UserDocument(
     val subscription: SubscriptionDocument? = null,
     val apiKey: ApiKey? = null,
     val email: String? = null,
+    val role: UserRole? = null,
 
     @MongoId
     val id: ObjectId = ObjectId(),
@@ -35,6 +36,10 @@ data class SubscriptionDocument(
     @MongoId
     val id: ObjectId = ObjectId(),
 )
+
+enum class UserRole {
+    ADMIN
+}
 
 sealed class UserSubscription(val num: Int, val name: String) {
     abstract fun days(): Range<Int>
