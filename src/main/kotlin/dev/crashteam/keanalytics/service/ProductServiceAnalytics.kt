@@ -52,7 +52,8 @@ class ProductServiceAnalytics(
                 orderCount = chSellerOverallInfo.orderCount,
                 productCount = chSellerOverallInfo.productCount,
                 productCountWithSales = chSellerOverallInfo.productCountWithSales,
-                salesDynamic = chSellerOrderDynamics
+                salesDynamic = chSellerOrderDynamics,
+                productWithoutSales = chSellerOverallInfo.productCountWithoutSales
             )
         }
         return sellerOverallInfo

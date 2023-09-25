@@ -446,6 +446,7 @@ class MarketDbApiV2Controller(
                             orderAmount = chSellerOrderDynamic.orderAmount
                         }
                     }
+                    this.productCountWithoutSales = categoryOverallAnalytics.productWithoutSales
                 }).toMono()
             }
         }
