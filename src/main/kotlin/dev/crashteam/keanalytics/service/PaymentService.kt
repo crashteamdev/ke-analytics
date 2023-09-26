@@ -223,7 +223,7 @@ class PaymentService(
                 val promoCodeDocument = promoCodeRepository.findByCode(promoCode).awaitSingleOrNull()
                 promoCodeDocument?.additionalDays ?: 0
             } else 0
-            val query = Query().apply { addCriteria(Criteria.where("promoCode").`is`(promoCode)) }
+            val query = Query().apply { addCriteria(Criteria.where("code").`is`(promoCode)) }
             val update = Update().inc("numberOfUses", 1)
             reactiveMongoTemplate.findAndModify(query, update, PromoCodeDocument::class.java).awaitSingle()
 
