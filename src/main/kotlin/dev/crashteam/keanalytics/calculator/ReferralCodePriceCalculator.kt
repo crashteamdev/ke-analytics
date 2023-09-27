@@ -50,7 +50,7 @@ class ReferralCodePriceCalculator(
         } else if (priceCalculatorOption.referralCode.isNotBlank()) {
             if (isUserCanUseReferral) {
                 (BigDecimal(subscriptionPrice) - (BigDecimal(subscriptionPrice) * BigDecimal(
-                    0.15
+                    0.10
                 ))).toLong().toString()
             } else subscriptionPrice.toString()
         } else {

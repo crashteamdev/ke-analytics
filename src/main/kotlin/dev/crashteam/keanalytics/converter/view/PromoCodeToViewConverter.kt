@@ -1,4 +1,4 @@
-package dev.crashteam.keanalytics.converter.mongo
+package dev.crashteam.keanalytics.converter.view
 
 import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.domain.mongo.PromoCodeDocument
