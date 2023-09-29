@@ -29,9 +29,8 @@ class SimplePriceCalculator(
             } else if (priceCalculatorContext.multiply >= 6) {
                 BigDecimal(0.30)
             } else BigDecimal(0.10)
-            (multipliedAmount - (multipliedAmount * discount)).toLong().toString()
 
-            return priceCalculatorOption.context.subscription.price().toBigDecimal()
+            return (multipliedAmount - (multipliedAmount * discount))
         } else {
             return priceCalculatorOption.context.subscription.price().toBigDecimal()
         }
