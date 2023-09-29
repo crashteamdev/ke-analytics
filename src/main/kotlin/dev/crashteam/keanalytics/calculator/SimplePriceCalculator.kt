@@ -3,6 +3,7 @@ package dev.crashteam.keanalytics.calculator
 import dev.crashteam.keanalytics.domain.mongo.AdvancedSubscription
 import dev.crashteam.keanalytics.domain.mongo.ProSubscription
 import java.math.BigDecimal
+import java.math.RoundingMode
 
 class SimplePriceCalculator(
     private val priceCalculatorOption: PriceCalculatorOption,
@@ -30,7 +31,7 @@ class SimplePriceCalculator(
                 BigDecimal(0.30)
             } else BigDecimal(0.10)
 
-            return (multipliedAmount - (multipliedAmount * discount))
+            return (multipliedAmount - (multipliedAmount * discount)).setScale(2, RoundingMode.HALF_UP)
         } else {
             return priceCalculatorOption.context.subscription.price().toBigDecimal()
         }
