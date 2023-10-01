@@ -101,7 +101,7 @@ class ReportService(
             userId,
             LocalDate.now().atStartOfDay(),
             LocalDate.now().atTime(LocalTime.MAX),
-            ReportType.SELLER,
+            ReportType.CATEGORY,
         ).awaitSingleOrNull()
     }
 
