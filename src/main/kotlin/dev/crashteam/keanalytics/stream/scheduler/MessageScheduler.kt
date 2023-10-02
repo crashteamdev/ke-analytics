@@ -119,7 +119,10 @@ class MessageScheduler(
         receiver.receive(
             consumer,
             StreamOffset.create(streamKey, ReadOffset.lastConsumed())
-        ).bufferTimeout(
+        ).retryWhen(
+            Retry.fixedDelay(MAX_RETRY_ATTEMPTS, java.time.Duration.ofSeconds(RETRY_DURATION_SEC)).doBeforeRetry {
+                log.warn(it.failure()) { "Error during consumer task" }
+            }).bufferTimeout(
             redisProperties.stream.maxBatchSize,
             java.time.Duration.ofMillis(redisProperties.stream.batchBufferDurationMs)
         ).onBackpressureBuffer()
