@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:17-jdk
 RUN apt update && \
     apt -y --no-install-recommends --no-install-suggests install libjemalloc2 curl && \
     apt clean && rm -rf /var/lib/apt/lists/*
