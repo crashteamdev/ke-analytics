@@ -10,7 +10,7 @@ ARG CERT_DIR=classes/cert
 COPY ${JAR_FILE} /opt/ke-analytics/ke-analytics.jar
 COPY ${CERT_DIR} /opt/ke-analytics/cert
 
-ENTRYPOINT ["java", "-server",
+ENTRYPOINT ["java", "-server",\
             "-Djavax.net.ssl.trustStore=/opt/ke-analytics/cert/marketdb.jks", "-Djavax.net.ssl.trustStorePassword=StrongPasswd",\
             "-jar", "/opt/ke-analytics/ke-analytics.jar"]
 
