@@ -10,11 +10,7 @@ ARG CERT_DIR=classes/cert
 COPY ${JAR_FILE} /opt/ke-analytics/ke-analytics.jar
 COPY ${CERT_DIR} /opt/ke-analytics/cert
 
-ENTRYPOINT ["java", "-server", "-Xms256M", "-Xss256k",\
-            "-XX:+UnlockDiagnosticVMOptions", "-XX:+UseContainerSupport",\
-            "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=dump.hprof", "-Djava.security.egd=/dev/zrandom",\
-            "-XX:+UseParallelGC", "-XX:MinHeapFreeRatio=5", "-XX:MaxHeapFreeRatio=10", "-XX:GCTimeRatio=4", "-XX:AdaptiveSizePolicyWeight=90",\
-            "-XX:MaxRAMFraction=2",\
+ENTRYPOINT ["java", "-server",
             "-Djavax.net.ssl.trustStore=/opt/ke-analytics/cert/marketdb.jks", "-Djavax.net.ssl.trustStorePassword=StrongPasswd",\
             "-jar", "/opt/ke-analytics/ke-analytics.jar"]
 
