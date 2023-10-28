@@ -28,7 +28,7 @@ class PromoCodePriceCalculator(
                     defaultPrice
                 } else {
                     val price = context.subscription.price().toBigDecimal() * context.multiply.toLong().toBigDecimal()
-                    ((price * promoCodeDocument.discount!!.toLong().toBigDecimal()) / BigDecimal.valueOf(100))
+                    price - ((price * promoCodeDocument.discount!!.toLong().toBigDecimal()) / BigDecimal.valueOf(100))
                 }
             }
         }
