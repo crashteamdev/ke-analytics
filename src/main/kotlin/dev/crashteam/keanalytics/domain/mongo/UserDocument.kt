@@ -5,6 +5,7 @@ import org.springframework.data.domain.Range
 import org.springframework.data.mongodb.core.index.Indexed
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.data.mongodb.core.mapping.MongoId
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Document("users")
@@ -15,6 +16,7 @@ data class UserDocument(
     val apiKey: ApiKey? = null,
     val email: String? = null,
     val role: UserRole? = null,
+    val lastUsageDay: LocalDate? = null,
 
     @MongoId
     val id: ObjectId = ObjectId(),

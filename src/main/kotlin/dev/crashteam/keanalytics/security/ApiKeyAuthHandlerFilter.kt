@@ -8,6 +8,8 @@ import org.springframework.web.server.ServerWebInputException
 import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.toMono
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 private val log = KotlinLogging.logger {}
@@ -24,13 +26,15 @@ class ApiKeyAuthHandlerFilter(
         }
         val apiKey: String = apiKeyHeaderValue.single()
 
-        return userRepository.findByApiKey_HashKey(apiKey).doOnSuccess { user ->
+        return userRepository.findByApiKey_HashKey(apiKey).flatMap { user ->
             if (user?.apiKey == null || user.apiKey.blocked) {
-                throw AuthorizationException("Not valid API key")
+                return@flatMap Mono.error(AuthorizationException("Not valid API key"))
             }
-//            if (user.subscription == null || user.subscription.endAt <= LocalDateTime.now()) {
-//                throw AuthorizationException("No access for user")
-//            }
+            if (user.lastUsageDay == null || user.lastUsageDay != LocalDate.now()) {
+                userRepository.save(user.copy(lastUsageDay = LocalDate.now())).toMono()
+            } else {
+                user.toMono()
+            }
         }.flatMap {
             chain.filter(exchange)
         }.onErrorResume {
