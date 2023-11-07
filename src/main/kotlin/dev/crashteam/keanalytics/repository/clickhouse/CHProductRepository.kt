@@ -25,7 +25,7 @@ class CHProductRepository(
     private companion object {
         private const val GET_PRODUCT_ADDITIONAL_INFO_SQL = """
             SELECT min(timestamp) as first_discovered
-                FROM uzum.product
+                FROM kazanex.product
             WHERE product_id = ?
               AND sku_id = ?
             GROUP BY product_id, sku_id
