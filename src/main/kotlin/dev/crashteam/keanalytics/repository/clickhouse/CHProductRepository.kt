@@ -23,6 +23,13 @@ class CHProductRepository(
 ) {
 
     private companion object {
+        private const val GET_PRODUCT_ADDITIONAL_INFO_SQL = """
+            SELECT min(timestamp) as first_discovered
+                FROM uzum.product
+            WHERE product_id = ?
+              AND sku_id = ?
+            GROUP BY product_id, sku_id
+        """
         const val GET_PRODUCT_HISTORY_SQL = """
             SELECT date,
                    product_id,
@@ -291,7 +298,19 @@ class CHProductRepository(
 
             SELECT date, sum(order_amount) AS order_amount FROM product_sales GROUP BY date
         """.trimIndent()
+    }
 
+    fun getProductAdditionalInfo(
+        productId: String,
+        skuId: String,
+        fromTime: LocalDateTime,
+        toTime: LocalDateTime
+    ): ChProductAdditionalInfo? {
+        return jdbcTemplate.queryForObject(
+            GET_PRODUCT_ADDITIONAL_INFO_SQL,
+            ProductAdditionalInfoMapper(),
+            productId, skuId
+        )
     }
 
     fun saveProducts(productFetchList: List<ChKeProduct>) {

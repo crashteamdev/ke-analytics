@@ -57,6 +57,29 @@ class MarketDbApiV2Controller(
     private val conversionService: ConversionService,
 ) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi, PromoCodeApi {
 
+    override fun productOverallInfo(
+        xRequestID: UUID,
+        X_API_KEY: String,
+        productId: Long,
+        skuId: Long,
+        fromTime: OffsetDateTime,
+        toTime: OffsetDateTime,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<ProductOverallInfo200Response>> {
+        val fromTimeLocalDateTime = fromTime.toLocalDateTime()
+        val toTimeLocalDateTime = toTime.toLocalDateTime()
+        val productAdditionalInfo = productServiceAnalytics.getProductAdditionalInfo(
+            productId.toString(),
+            skuId.toString(),
+            fromTimeLocalDateTime,
+            toTimeLocalDateTime
+        ) ?: return ResponseEntity.notFound().build<ProductOverallInfo200Response>().toMono()
+
+        return ResponseEntity.ok(ProductOverallInfo200Response().apply {
+            firstDiscovered = productAdditionalInfo.firstDiscovered.atOffset(ZoneOffset.UTC)
+        }).toMono()
+    }
+
     override fun productSkuHistory(
         xRequestID: UUID,
         X_API_KEY: String,

@@ -3,6 +3,7 @@ package dev.crashteam.keanalytics.service
 import dev.crashteam.keanalytics.config.RedisConfig
 import dev.crashteam.keanalytics.repository.clickhouse.CHProductRepository
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryOverallInfo
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductAdditionalInfo
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductSalesHistory
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductsSales
 import dev.crashteam.keanalytics.service.model.SellerOverallInfo
@@ -18,6 +19,15 @@ import java.time.LocalDateTime
 class ProductServiceAnalytics(
     private val chProductRepository: CHProductRepository
 ) {
+
+    fun getProductAdditionalInfo(
+        productId: String,
+        skuId: String,
+        fromTime: LocalDateTime,
+        toTime: LocalDateTime
+    ): ChProductAdditionalInfo? {
+        return chProductRepository.getProductAdditionalInfo(productId, skuId, fromTime, toTime)
+    }
 
     @Cacheable(value = [RedisConfig.CATEGORY_OVERALL_INFO_CACHE], unless = "#result == null")
     fun getCategoryOverallAnalytics(
