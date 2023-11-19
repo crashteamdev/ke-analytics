@@ -50,25 +50,6 @@ sealed class UserSubscription(val num: Int, val name: String) {
     abstract fun price(): Int
 }
 
-object DemoSubscription : UserSubscription(100, "demo") {
-    override fun days(): Range<Int> {
-        return Range.closed(1, 30)
-    }
-
-    override fun shopReports(): Int {
-        return 100
-    }
-
-    override fun categoryReports(): Int {
-        return 10
-    }
-
-    override fun price(): Int {
-        return 1000
-    }
-}
-
-
 object DefaultSubscription : UserSubscription(1, "default") {
     override fun days(): Range<Int> {
         return Range.closed(1, 30)
