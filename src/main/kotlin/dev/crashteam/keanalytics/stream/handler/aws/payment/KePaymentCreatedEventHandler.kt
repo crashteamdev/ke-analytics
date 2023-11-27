@@ -7,11 +7,13 @@ import dev.crashteam.payment.KeAnalyticsContext
 import dev.crashteam.payment.PaymentEvent
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
+import org.springframework.core.convert.ConversionService
 import org.springframework.stereotype.Component
 
 @Component
 class KePaymentCreatedEventHandler(
     private val paymentRepository: PaymentRepository,
+    private val conversionService: ConversionService,
 ) : PaymentEventHandler {
 
     override fun handle(events: List<PaymentEvent>) {
@@ -22,11 +24,12 @@ class KePaymentCreatedEventHandler(
 
                 if (paymentDocument != null) continue
 
+                val paymentStatus = conversionService.convert(paymentCreated.status, String::class.java)!!
                 val newPaymentDocument = PaymentDocument(
                     paymentId = paymentCreated.paymentId,
                     userId = paymentCreated.userId,
                     createdAt = paymentCreated.createdAt.toLocalDateTime(),
-                    status = paymentCreated.status.name,
+                    status = paymentStatus,
                     paid = false,
                     amount = paymentCreated.amount.value.toBigDecimal().movePointLeft(2),
                     multiply = paymentCreated.userPaidService.paidService.context.multiply.toShort(),

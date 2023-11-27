@@ -7,6 +7,7 @@ import dev.crashteam.payment.PaymentStatus
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import org.springframework.core.convert.ConversionService
 import org.springframework.stereotype.Component
 
 private val log = KotlinLogging.logger {}
@@ -15,6 +16,7 @@ private val log = KotlinLogging.logger {}
 class KePaymentStatusEventHandler(
     private val paymentService: PaymentService,
     private val paymentRepository: PaymentRepository,
+    private val conversionService: ConversionService,
 ) : PaymentEventHandler {
 
     override fun handle(events: List<PaymentEvent>) {
@@ -24,7 +26,8 @@ class KePaymentStatusEventHandler(
                 val paymentDocument =
                     paymentRepository.findByPaymentId(paymentStatusChanged.paymentId).awaitSingleOrNull()
                         ?: continue
-                val updatePaymentDocument = paymentDocument.copy(status = paymentStatusChanged.status.name)
+                val paymentStatus = conversionService.convert(paymentStatusChanged.status, String::class.java)!!
+                val updatePaymentDocument = paymentDocument.copy(status = paymentStatus)
                 when (paymentStatusChanged.status) {
                     PaymentStatus.PAYMENT_STATUS_PENDING,
                     PaymentStatus.PAYMENT_STATUS_CANCELED,
