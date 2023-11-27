@@ -43,7 +43,7 @@ class CHProductRepository(
                    photo_key,
                    if(available_amount_diff < 0 OR available_amount_diff > 0 AND total_orders_amount_diff = 0,
                       total_orders_amount_diff, available_amount_diff) * purchase_price / 100 AS sales_amount,
-                   if(available_amount_diff < 0, 0, available_amount_diff) AS available_amount,
+                   available_amount AS available_amount,
                    total_available_amount
             FROM (
                  SELECT date,
@@ -51,6 +51,7 @@ class CHProductRepository(
                         sku_id,
                         title,
                         available_amount_max - available_amount_min       AS available_amount_diff,
+                        available_amount_min                              AS available_amount,
                         total_orders_amount_max - total_orders_amount_min AS total_orders_amount_diff,
                         total_available_amount,
                         reviews_amount_max - reviews_amount_min           AS reviews_amount_diff,
