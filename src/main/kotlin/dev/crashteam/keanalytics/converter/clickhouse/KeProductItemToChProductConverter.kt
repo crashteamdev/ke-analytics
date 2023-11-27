@@ -12,7 +12,7 @@ import java.time.ZoneId
 import java.util.stream.Collectors
 
 @Component
-class UzumProductItemToChProductConverter :
+class KeProductItemToChProductConverter :
     DataConverter<KeProductItemStreamRecord, ChKeProductConverterResultWrapper> {
 
     override fun convert(source: KeProductItemStreamRecord): ChKeProductConverterResultWrapper {
