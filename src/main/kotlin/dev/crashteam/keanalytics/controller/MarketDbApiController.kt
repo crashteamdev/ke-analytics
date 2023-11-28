@@ -497,6 +497,7 @@ class MarketDbApiController(
         if (responseEntity.statusCode.is4xxClientError) {
             return ResponseEntity.badRequest().build()
         } else if (responseEntity.statusCode.is5xxServerError) {
+            log.warn { "Bad similar item response: ${responseEntity.body}" }
             return ResponseEntity.internalServerError().build()
         }
 
