@@ -199,16 +199,14 @@ class CHProductRepository(
                         total_orders_amount_diff AS order_amount,
                         total_orders_amount_diff * purchase_price AS revenue,
                         purchase_price,
-                        available_amount,
-                        restriction
+                        available_amount
                  FROM (
                           SELECT date,
                                  product_id,
                                  title,
                                  available_amount,
                                  total_orders_amount_max - total_orders_amount_min AS total_orders_amount_diff,
-                                 purchase_price,
-                                 restriction
+                                 purchase_price
                           FROM (
                                    SELECT date,
                                           product_id,
@@ -216,8 +214,7 @@ class CHProductRepository(
                                           max(available_amount)    AS available_amount,
                                           min(total_orders_amount) AS total_orders_amount_min,
                                           max(total_orders_amount) AS total_orders_amount_max,
-                                          quantile(purchase_price) AS purchase_price,
-                                          min(restriction)         AS restriction
+                                          quantile(purchase_price) AS purchase_price
                                    FROM kazanex.product
                                    WHERE seller_link = ?
                                      AND timestamp BETWEEN ? AND ?
