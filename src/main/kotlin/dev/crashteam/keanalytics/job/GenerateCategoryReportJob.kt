@@ -1,12 +1,5 @@
 package dev.crashteam.keanalytics.job
 
-import dev.crashteam.keanalytics.domain.mongo.ProSubscription
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.reactor.awaitSingleOrNull
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
-import mu.KotlinLogging
-import org.apache.commons.io.FileUtils
 import dev.crashteam.keanalytics.domain.mongo.ReportStatus
 import dev.crashteam.keanalytics.domain.mongo.ReportVersion
 import dev.crashteam.keanalytics.extensions.getApplicationContext
@@ -14,6 +7,12 @@ import dev.crashteam.keanalytics.report.ReportFileService
 import dev.crashteam.keanalytics.report.ReportService
 import dev.crashteam.keanalytics.repository.mongo.CategoryRepository
 import dev.crashteam.keanalytics.repository.mongo.ReportRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.reactor.awaitSingleOrNull
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import mu.KotlinLogging
+import org.apache.commons.io.FileUtils
 import org.quartz.Job
 import org.quartz.JobExecutionContext
 import java.math.BigInteger
@@ -43,7 +42,7 @@ class GenerateCategoryReportJob : Job {
         val userId = context.jobDetail.jobDataMap["user_id"] as? String
         val version = ReportVersion.valueOf(context.jobDetail.jobDataMap["version"] as? String ?: ReportVersion.V1.name)
         val now = LocalDateTime.now().toLocalDate().atStartOfDay()
-        var fromTime = now.minusDays(interval.toLong())
+        val fromTime = now.minusDays(interval.toLong())
         val toTime = now
         runBlocking {
             val tempFilePath = withContext(Dispatchers.IO) {
@@ -51,29 +50,25 @@ class GenerateCategoryReportJob : Job {
             }
             try {
                 log.info { "Generating report job. categoryPublicId=$categoryPublicId; categoryPath=$categoryPath; jobId=$jobId; version=$version" }
-                val categoryPathSplit = categoryPath.split(",")
-                // TODO: hotfix high interval. database can't execute such big amount of data
-                fromTime = if (categoryPathSplit.size == 1 && interval >= ProSubscription.days().upperBound.value.get()) {
-                    now.minusDays(60)
-                } else {
-                    now.minusDays(interval.toLong())
-                }
-
-                log.info { "Category path split: $categoryPathSplit" }
                 if (version == ReportVersion.V2) {
                     reportFileService.generateReportByCategoryV2(
-                        categoryPathSplit,
+                        categoryPublicId,
                         fromTime,
                         toTime,
                         tempFilePath.outputStream()
                     )
                     log.info(
                         "Save generated category file. name=${tempFilePath.fileName};" +
-                                " size=${FileUtils.byteCountToDisplaySize(BigInteger.valueOf(tempFilePath.toFile().length()))}",
+                                " size=${
+                                    FileUtils.byteCountToDisplaySize(
+                                        BigInteger.valueOf(
+                                            tempFilePath.toFile().length()
+                                        )
+                                    )
+                                }",
                     )
                     reportService.saveCategoryReportV2(
                         categoryPublicId,
-                        categoryPathSplit,
                         interval,
                         jobId,
                         tempFilePath.inputStream()

@@ -14,8 +14,8 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.apache.poi.xssf.usermodel.XSSFFont
 import dev.crashteam.keanalytics.report.model.CustomCellStyle
 import dev.crashteam.keanalytics.report.model.Report
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductSalesReport
 import dev.crashteam.keanalytics.repository.mongo.model.ProductSellerHistoryAggregate
-import dev.crashteam.keanalytics.repository.mongo.model.ProductSellerHistoryAggregateWrapper
 import dev.crashteam.keanalytics.service.ProductService
 import dev.crashteam.keanalytics.service.ProductServiceV2
 import dev.crashteam.keanalytics.service.model.AggregateSalesProduct
@@ -43,7 +43,7 @@ class ReportFileService(
 ) {
 
     private val headerNames = arrayOf(
-        "Продавец", "ID продукта", "SKU продукта", "Название",
+        "Продавец", "ID продукта", "Название",
         "Категория", "Остаток", "Дней в наличии",
         "Цена", "Заказов", "Выручка", "ABC заказы", "ABC выручка"
     )
@@ -66,7 +66,6 @@ class ReportFileService(
 
     suspend fun saveCategoryReport(
         categoryPublicId: Long,
-        categoryPath: String,
         jobId: String,
         fileInputStream: InputStream,
         fileName: String
@@ -74,7 +73,6 @@ class ReportFileService(
         val metaData: DBObject = BasicDBObject()
         metaData.put("type", "xlsx")
         metaData.put("categoryPublicId", categoryPublicId)
-        metaData.put("categoryTitle", categoryPath)
         metaData.put("created_at", LocalDateTime.now())
         metaData.put("job_id", jobId)
         val store = gridFsTemplate.store(fileInputStream, fileName, metaData)
@@ -124,15 +122,14 @@ class ReportFileService(
             while (true) {
                 if (offset != 0 && offset >= total) break
 
-                val sellerSalesWrapper: ProductSellerHistoryAggregateWrapper =
-                    productServiceV2.getSellerSales(link, fromTime, toTime, limit, offset).awaitSingleOrNull()
-                        ?: throw IllegalArgumentException("Unknown seller link '${link}'")
-                total = sellerSalesWrapper.total
+                val sellerSales: List<ChProductSalesReport> =
+                    productServiceV2.getSellerSales(link, fromTime, toTime, limit, offset)
+                total = sellerSales.first().total
 
-                if (sellerSalesWrapper.data.isEmpty()) break
+                if (sellerSales.isEmpty()) break
 
                 val totalRowCount = total + 1
-                for (sellerSale in sellerSalesWrapper.data) {
+                for (sellerSale in sellerSales) {
                     rowCursor++
                     columnCursor++
                     fullWorkBookContentV2(sellerSale, rowCursor, columnCursor, totalRowCount, sheet, wb)
@@ -149,7 +146,7 @@ class ReportFileService(
     }
 
     suspend fun generateReportByCategoryV2(
-        categoryPath: List<String>,
+        categoryId: Long,
         fromTime: LocalDateTime,
         toTime: LocalDateTime,
         outputStream: OutputStream
@@ -162,31 +159,29 @@ class ReportFileService(
 
             createHeaderRow(sheet, styles, headerNames)
 
-            val limit = 7000
+            val limit = 10000
             var offset = 0
             var hasNext = true
             var rowCursor = 0
             var columnCursor = 1
 
             while (hasNext) {
-                log.info { "Get category sales. categoryPath=$categoryPath; limit=$limit; offset=$offset" }
-                val categorySales: MutableList<ProductSellerHistoryAggregate> = productServiceV2.getCategorySales(
-                    categoryPath = categoryPath,
+                val categorySales: List<ChProductSalesReport> = productServiceV2.getCategorySales(
+                    categoryId = categoryId,
                     fromTime = fromTime,
                     toTime = toTime,
                     limit = limit,
                     offset = offset
-                ).awaitSingleOrNull()
-                    ?: throw IllegalArgumentException("Unknown category path '${categoryPath.joinToString(",")}'")
+                )
 
                 hasNext = categorySales.size > limit
 
-                log.info { "Received category sales. categoryPath=$categoryPath" +
+                log.info { "Received category sales. categoryId=$categoryId" +
                         " limit=$limit; offset=$offset" +
                         " size=${categorySales.size};"}
 
                 if (categorySales.isEmpty()) {
-                    log.info { "Empty category sales, finishing. categoryPath=$categoryPath" +
+                    log.info { "Empty category sales, finishing. categoryId=$categoryId" +
                             " limit=$limit; offset=$offset" }
                     break
                 }
@@ -210,7 +205,7 @@ class ReportFileService(
     }
 
     private fun fullWorkBookContentV2(
-        sellerSale: ProductSellerHistoryAggregate,
+        sellerSale: ChProductSalesReport,
         rowCursor: Int,
         columnCursor: Int,
         totalRowCount: Long,
@@ -223,9 +218,9 @@ class ReportFileService(
             when (i) {
                 0 -> cell.setCellValue(sellerSale.sellerTitle)
                 1 -> {
-                    cell.setCellValue(sellerSale.id.productId.toString())
+                    cell.setCellValue(sellerSale.productId)
                     val link = wb.creationHelper.createHyperlink(HyperlinkType.URL)
-                    link.address = "https://kazanexpress.ru/product/${sellerSale.id.productId}"
+                    link.address = "https://kazanexpress.ru/product/${sellerSale.productId}"
                     cell.hyperlink = link
                     val linkFont: Font = wb.createFont().apply {
                         this.underline = XSSFFont.U_SINGLE
@@ -234,39 +229,37 @@ class ReportFileService(
                     val linkStyle: CellStyle = wb.createCellStyle().apply { setFont(linkFont) }
                     cell.cellStyle = linkStyle
                 }
-
-                2 -> cell.setCellValue(sellerSale.id.skuId.toString())
-                3 -> cell.setCellValue(sellerSale.name)
-                4 -> cell.setCellValue(sellerSale.categoryName)
-                5 -> cell.setCellValue(sellerSale.availableAmount.toDouble())
-                6 -> {
-                    val daysInStock = sellerSale.availableAmountGraph.filter { it.availableAmount > 0 }
+                2 -> cell.setCellValue(sellerSale.name)
+                3 -> cell.setCellValue(sellerSale.categoryName)
+                4 -> cell.setCellValue(sellerSale.availableAmounts.toDouble())
+                5 -> {
+                    val daysInStock = sellerSale.availableAmountGraph.filter { it > 0 }
                     cell.setCellValue(daysInStock.size.toDouble())
                 }
 
-                7 -> {
+                6 -> {
                     cell.cellStyle = rubleCurrencyCellFormat(wb)
-                    cell.setCellValue(sellerSale.price.toDouble())
+                    cell.setCellValue(sellerSale.purchasePrice.toDouble())
                 }
 
-                8 -> {
-                    cell.setCellValue(sellerSale.orderAmountGraph.map { it.orderAmount }
+                7 -> {
+                    cell.setCellValue(sellerSale.orderGraph.map { it }
                         .reduce { o, o2 -> o.plus(o2) }.toDouble())
                 }
 
-                9 -> {
+                8 -> {
                     cell.cellStyle = rubleCurrencyCellFormat(wb)
                     cell.setCellValue(
-                        sellerSale.proceeds.setScale(2, RoundingMode.HALF_UP).toDouble()
+                        sellerSale.sales.setScale(2, RoundingMode.HALF_UP).toDouble()
                     )
                 }
 
-                10 -> {
+                9 -> {
                     cell.cellFormula =
                         "CHOOSE(MATCH((SUMIF(\$I\$2:\$I$totalRowCount,\">\"&\$I$columnCursor)+\$I$columnCursor)/SUM(\$I\$2:\$I$totalRowCount),{0,0.81,0.96}),\"A\",\"B\",\"C\")"
                 }
 
-                11 -> {
+                10 -> {
                     cell.cellFormula =
                         "CHOOSE(MATCH((SUMIF(\$J\$2:\$J$totalRowCount,\">\"&\$J$columnCursor)+\$J$columnCursor)/SUM(\$J\$2:\$J$totalRowCount),{0,0.81,0.96}),\"A\",\"B\",\"C\")"
                 }

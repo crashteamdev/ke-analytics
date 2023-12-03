@@ -1,5 +1,7 @@
 package dev.crashteam.keanalytics.service
 
+import dev.crashteam.keanalytics.repository.clickhouse.CHProductRepository
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductSalesReport
 import mu.KotlinLogging
 import dev.crashteam.keanalytics.repository.mongo.ProductChangeTimeSeriesRepository
 import dev.crashteam.keanalytics.repository.mongo.model.*
@@ -13,7 +15,8 @@ private val log = KotlinLogging.logger {}
 
 @Service
 class ProductServiceV2(
-    private val productChangeTimeSeriesRepository: ProductChangeTimeSeriesRepository
+    private val productChangeTimeSeriesRepository: ProductChangeTimeSeriesRepository,
+    private val chProductRepository: CHProductRepository,
 ) {
 
     fun getProductSkuSalesHistory(
@@ -55,21 +58,28 @@ class ProductServiceV2(
         toTime: LocalDateTime,
         limit: Int,
         offset: Int,
-    ): Mono<ProductSellerHistoryAggregateWrapper> {
-        log.info { "Get seller sales by link=$link; fromTime=$fromTime; toTime=$toTime" }
-        return productChangeTimeSeriesRepository.findProductHistoryBySellers(link, fromTime, toTime, limit, offset)
+    ): List<ChProductSalesReport> {
+        log.info { "Get seller sales by link=$link; fromTime=$fromTime; toTime=$toTime; limit=$limit; offset=$offset" }
+        return chProductRepository.getSellerSalesForReport(
+            sellerLink = link,
+            fromTime = fromTime,
+            toTime = toTime,
+            limit = limit,
+            offset = offset,
+        )
     }
 
     fun getCategorySales(
-        categoryPath: List<String>,
+        categoryId: Long,
         fromTime: LocalDateTime,
         toTime: LocalDateTime,
         limit: Int,
         offset: Int,
-    ): Mono<MutableList<ProductSellerHistoryAggregate>> {
-        log.info { "Get category sales by categoryPath=${categoryPath.joinToString(",")}; fromTime=$fromTime; toTime=$toTime" }
-        return productChangeTimeSeriesRepository.findProductHistoryByCategory(
-            categoryPath,
+    ): List<ChProductSalesReport> {
+        log.info { "Get category sales by categoryId=$categoryId;" +
+                " fromTime=$fromTime; toTime=$toTime; limit=$limit' offset=$offset" }
+        return chProductRepository.getCategorySalesForReport(
+            categoryId,
             fromTime,
             toTime,
             limit,
