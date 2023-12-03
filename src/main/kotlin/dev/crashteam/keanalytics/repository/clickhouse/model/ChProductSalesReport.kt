@@ -9,7 +9,7 @@ data class ChProductSalesReport(
     val latestCategoryId: Long,
     val orderGraph: List<Long>,
     val availableAmountGraph: List<Long>,
-    val priceGraph: List<Long>,
+    val priceGraph: List<BigDecimal>,
     val availableAmounts: Long,
     val purchasePrice: BigDecimal,
     val sales: BigDecimal,
