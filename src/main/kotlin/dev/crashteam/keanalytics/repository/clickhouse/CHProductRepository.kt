@@ -460,7 +460,7 @@ class CHProductRepository(
         return jdbcTemplate.query(
             GET_CATEGORY_SALES_REPORT,
             ProductSalesReportMapper(),
-            categoryId, fromTime, toTime, limit, offset
+            fromTime, toTime, categoryId, categoryId, categoryId, limit, offset
         )
     }
 
