@@ -4,7 +4,12 @@ import com.mongodb.BasicDBObject
 import com.mongodb.DBObject
 import com.mongodb.client.gridfs.GridFSFindIterable
 import com.mongodb.client.gridfs.model.GridFSFile
-import kotlinx.coroutines.reactor.awaitSingleOrNull
+import dev.crashteam.keanalytics.report.model.CustomCellStyle
+import dev.crashteam.keanalytics.report.model.Report
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductSalesReport
+import dev.crashteam.keanalytics.service.ProductService
+import dev.crashteam.keanalytics.service.ProductServiceV2
+import dev.crashteam.keanalytics.service.model.AggregateSalesProduct
 import mu.KotlinLogging
 import org.apache.poi.common.usermodel.HyperlinkType
 import org.apache.poi.hssf.util.HSSFColor
@@ -12,13 +17,6 @@ import org.apache.poi.ss.usermodel.*
 import org.apache.poi.xssf.streaming.SXSSFSheet
 import org.apache.poi.xssf.streaming.SXSSFWorkbook
 import org.apache.poi.xssf.usermodel.XSSFFont
-import dev.crashteam.keanalytics.report.model.CustomCellStyle
-import dev.crashteam.keanalytics.report.model.Report
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductSalesReport
-import dev.crashteam.keanalytics.repository.mongo.model.ProductSellerHistoryAggregate
-import dev.crashteam.keanalytics.service.ProductService
-import dev.crashteam.keanalytics.service.ProductServiceV2
-import dev.crashteam.keanalytics.service.model.AggregateSalesProduct
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.gridfs.GridFsOperations
@@ -110,6 +108,12 @@ class ReportFileService(
             val sheet: SXSSFSheet = wb.createSheet("ABC отчет")
             wb.createSheet("marketdb.ru")
             wb.createSheet("Report range - ${Duration.between(fromTime, toTime).toDays()}")
+            val rubleCurrencyCellFormat = rubleCurrencyCellFormat(wb)
+            val linkFont: Font = wb.createFont().apply {
+                this.underline = XSSFFont.U_SINGLE
+                this.color = HSSFColor.HSSFColorPredefined.BLUE.index
+            }
+            val linkStyle: CellStyle = wb.createCellStyle().apply { setFont(linkFont) }
 
             createHeaderRow(sheet, styles, headerNames)
 
@@ -132,7 +136,16 @@ class ReportFileService(
                 for (sellerSale in sellerSales) {
                     rowCursor++
                     columnCursor++
-                    fullWorkBookContentV2(sellerSale, rowCursor, columnCursor, totalRowCount, sheet, wb)
+                    fullWorkBookContentV2(
+                        sellerSale,
+                        rowCursor,
+                        columnCursor,
+                        totalRowCount,
+                        sheet,
+                        rubleCurrencyCellFormat,
+                        linkStyle,
+                        wb
+                    )
                 }
                 offset += limit
             }
@@ -156,6 +169,12 @@ class ReportFileService(
             val sheet: SXSSFSheet = wb.createSheet("ABC отчет")
             wb.createSheet("marketdb.ru")
             wb.createSheet("Report range - ${Duration.between(fromTime, toTime).toDays()}")
+            val rubleCurrencyCellFormat = rubleCurrencyCellFormat(wb)
+            val linkFont: Font = wb.createFont().apply {
+                this.underline = XSSFFont.U_SINGLE
+                this.color = HSSFColor.HSSFColorPredefined.BLUE.index
+            }
+            val linkStyle: CellStyle = wb.createCellStyle().apply { setFont(linkFont) }
 
             createHeaderRow(sheet, styles, headerNames)
 
@@ -179,13 +198,17 @@ class ReportFileService(
 
                 if (categorySales.isEmpty()) break
 
-                log.info { "Received category sales. categoryId=$categoryId" +
-                        " limit=$limit; offset=$offset" +
-                        " size=${categorySales.size};"}
+                log.info {
+                    "Received category sales. categoryId=$categoryId" +
+                            " limit=$limit; offset=$offset" +
+                            " size=${categorySales.size};"
+                }
 
                 if (categorySales.isEmpty()) {
-                    log.info { "Empty category sales, finishing. categoryId=$categoryId" +
-                            " limit=$limit; offset=$offset" }
+                    log.info {
+                        "Empty category sales, finishing. categoryId=$categoryId" +
+                                " limit=$limit; offset=$offset"
+                    }
                     break
                 }
 
@@ -193,7 +216,16 @@ class ReportFileService(
                 for (sellerSale in categorySales) {
                     rowCursor++
                     columnCursor++
-                    fullWorkBookContentV2(sellerSale, rowCursor, columnCursor, totalRowCount, sheet, wb)
+                    fullWorkBookContentV2(
+                        sellerSale,
+                        rowCursor,
+                        columnCursor,
+                        totalRowCount,
+                        sheet,
+                        rubleCurrencyCellFormat,
+                        linkStyle,
+                        wb
+                    )
                 }
                 offset += limit
             }
@@ -213,15 +245,11 @@ class ReportFileService(
         columnCursor: Int,
         totalRowCount: Long,
         sheet: SXSSFSheet,
+        rubleCurrencyCellFormat: CellStyle?,
+        linkStyle: CellStyle,
         wb: Workbook,
     ) {
         val row = sheet.createRow(rowCursor)
-        val rubleCurrencyCellFormat = rubleCurrencyCellFormat(wb)
-        val linkFont: Font = wb.createFont().apply {
-            this.underline = XSSFFont.U_SINGLE
-            this.color = HSSFColor.HSSFColorPredefined.BLUE.index
-        }
-        val linkStyle: CellStyle = wb.createCellStyle().apply { setFont(linkFont) }
         for (i in headerNames.indices) {
             val cell = row.createCell(i)
             when (i) {
@@ -233,6 +261,7 @@ class ReportFileService(
                     cell.hyperlink = link
                     cell.cellStyle = linkStyle
                 }
+
                 2 -> cell.setCellValue(sellerSale.name)
                 3 -> cell.setCellValue(sellerSale.categoryName)
                 4 -> cell.setCellValue(sellerSale.availableAmounts.toDouble())
