@@ -113,7 +113,7 @@ class ReportFileService(
 
             createHeaderRow(sheet, styles, headerNames)
 
-            val limit = 7000
+            val limit = 10000
             var offset = 0
             var total = 0L
             var rowCursor = 0
@@ -161,11 +161,13 @@ class ReportFileService(
 
             val limit = 10000
             var offset = 0
-            var hasNext = true
+            var total = 0L
             var rowCursor = 0
             var columnCursor = 1
 
-            while (hasNext) {
+            while (true) {
+                if (offset != 0 && offset >= total) break
+
                 val categorySales: List<ChProductSalesReport> = productServiceV2.getCategorySales(
                     categoryId = categoryId,
                     fromTime = fromTime,
@@ -173,8 +175,9 @@ class ReportFileService(
                     limit = limit,
                     offset = offset
                 )
+                total = categorySales.first().total
 
-                hasNext = categorySales.size > limit
+                if (categorySales.isEmpty()) break
 
                 log.info { "Received category sales. categoryId=$categoryId" +
                         " limit=$limit; offset=$offset" +
@@ -186,11 +189,11 @@ class ReportFileService(
                     break
                 }
 
-                val totalRowCount = categorySales.size + 1
+                val totalRowCount = total + 1
                 for (sellerSale in categorySales) {
                     rowCursor++
                     columnCursor++
-                    fullWorkBookContentV2(sellerSale, rowCursor, columnCursor, totalRowCount.toLong(), sheet, wb)
+                    fullWorkBookContentV2(sellerSale, rowCursor, columnCursor, totalRowCount, sheet, wb)
                 }
                 offset += limit
             }
