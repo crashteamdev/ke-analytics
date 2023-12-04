@@ -34,7 +34,6 @@ class GenerateCategoryReportJob : Job {
         val categoryPublicId = context.jobDetail.jobDataMap["categoryPublicId"] as? Long
             ?: throw IllegalStateException("categoryPublicId can't be null")
         val categoryPath = context.jobDetail.jobDataMap["categoryPath"] as? String
-            ?: throw IllegalStateException("categoryPath can't be null")
         val interval = context.jobDetail.jobDataMap["interval"] as? Int
             ?: throw IllegalStateException("interval can't be null")
         val jobId = context.jobDetail.jobDataMap["job_id"] as? String
