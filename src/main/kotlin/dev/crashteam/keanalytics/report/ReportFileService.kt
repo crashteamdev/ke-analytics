@@ -216,6 +216,12 @@ class ReportFileService(
         wb: Workbook,
     ) {
         val row = sheet.createRow(rowCursor)
+        val rubleCurrencyCellFormat = rubleCurrencyCellFormat(wb)
+        val linkFont: Font = wb.createFont().apply {
+            this.underline = XSSFFont.U_SINGLE
+            this.color = HSSFColor.HSSFColorPredefined.BLUE.index
+        }
+        val linkStyle: CellStyle = wb.createCellStyle().apply { setFont(linkFont) }
         for (i in headerNames.indices) {
             val cell = row.createCell(i)
             when (i) {
@@ -225,11 +231,6 @@ class ReportFileService(
                     val link = wb.creationHelper.createHyperlink(HyperlinkType.URL)
                     link.address = "https://kazanexpress.ru/product/${sellerSale.productId}"
                     cell.hyperlink = link
-                    val linkFont: Font = wb.createFont().apply {
-                        this.underline = XSSFFont.U_SINGLE
-                        this.color = HSSFColor.HSSFColorPredefined.BLUE.index
-                    }
-                    val linkStyle: CellStyle = wb.createCellStyle().apply { setFont(linkFont) }
                     cell.cellStyle = linkStyle
                 }
                 2 -> cell.setCellValue(sellerSale.name)
@@ -241,7 +242,7 @@ class ReportFileService(
                 }
 
                 6 -> {
-                    cell.cellStyle = rubleCurrencyCellFormat(wb)
+                    cell.cellStyle = rubleCurrencyCellFormat
                     cell.setCellValue(sellerSale.purchasePrice.toDouble())
                 }
 
@@ -251,7 +252,7 @@ class ReportFileService(
                 }
 
                 8 -> {
-                    cell.cellStyle = rubleCurrencyCellFormat(wb)
+                    cell.cellStyle = rubleCurrencyCellFormat
                     cell.setCellValue(
                         sellerSale.sales.setScale(2, RoundingMode.HALF_UP).toDouble()
                     )
