@@ -3,7 +3,6 @@ package dev.crashteam.keanalytics.controller
 import dev.crashteam.keanalytics.domain.mongo.*
 import dev.crashteam.keanalytics.report.ReportFileService
 import dev.crashteam.keanalytics.report.ReportService
-import dev.crashteam.keanalytics.repository.mongo.CategoryRepository
 import dev.crashteam.keanalytics.repository.mongo.ReportRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
 import dev.crashteam.keanalytics.service.ProductServiceAnalytics
@@ -33,7 +32,6 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toMono
 import reactor.kotlin.core.publisher.toFlux
-import reactor.kotlin.core.publisher.toMono
 import java.math.RoundingMode
 import java.security.Principal
 import java.time.*
@@ -51,7 +49,6 @@ class MarketDbApiV2Controller(
     private val reportFileService: ReportFileService,
     private val reportService: ReportService,
     private val reportRepository: ReportRepository,
-    private val categoryRepository: CategoryRepository,
     private val productServiceAnalytics: ProductServiceAnalytics,
     private val promoCodeService: PromoCodeService,
     private val conversionService: ConversionService,
@@ -222,13 +219,10 @@ class MarketDbApiV2Controller(
                     // Save report job
                     return@flatMap reportRepository.findByRequestIdAndSellerLink(idempotenceKey, sellerLink)
                         .flatMap { report ->
-                            if (report.status != ReportStatus.FAILED) {
-                                return@flatMap ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                    this.reportId = report.reportId
-                                    this.jobId = UUID.fromString(report.jobId)
-                                }).toMono()
-                            }
-                            Mono.create { ResponseEntity.badRequest().build<GetReportBySeller200Response>() }
+                            ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                                this.reportId = report.reportId
+                                this.jobId = UUID.fromString(report.jobId)
+                            }).toMono()
                         }.switchIfEmpty(Mono.defer {
                             val jobId = UUID.randomUUID().toString()
                             reportRepository.save(
@@ -288,13 +282,10 @@ class MarketDbApiV2Controller(
                     val jobId = UUID.randomUUID().toString()
                     reportRepository.findByRequestIdAndCategoryPublicId(idempotenceKey, categoryId)
                         .flatMap { report ->
-                            if (report.status != ReportStatus.FAILED) {
-                                return@flatMap ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                    this.jobId = UUID.fromString(jobId)
-                                    this.reportId = report.reportId
-                                }).toMono()
-                            }
-                            Mono.create { ResponseEntity.badRequest().build<GetReportBySeller200Response>() }
+                            return@flatMap ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                                this.jobId = UUID.fromString(jobId)
+                                this.reportId = report.reportId
+                            }).toMono()
                         }.switchIfEmpty(Mono.defer {
                             reportRepository.save(
                                 ReportDocument(
