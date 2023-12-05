@@ -43,14 +43,12 @@ class ReportService(
     @Transactional
     suspend fun saveCategoryReportV2(
         categoryPublicId: Long,
-        categoryPath: List<String>,
         interval: Int,
         jobId: String,
         reportInputStream: InputStream
     ) {
         val reportId: String = reportFileService.saveCategoryReport(
             categoryPublicId,
-            categoryPath.joinToString(","),
             jobId,
             reportInputStream,
             "$categoryPublicId-$interval.xlsx"
@@ -69,7 +67,6 @@ class ReportService(
     ) {
         val reportId: String = reportFileService.saveCategoryReport(
             categoryPublicId,
-            categoryTitle,
             jobId,
             report.inputStream(),
             "$categoryTitle-$interval.xlsx"

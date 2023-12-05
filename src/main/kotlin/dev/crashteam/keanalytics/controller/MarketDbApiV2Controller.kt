@@ -3,7 +3,6 @@ package dev.crashteam.keanalytics.controller
 import dev.crashteam.keanalytics.domain.mongo.*
 import dev.crashteam.keanalytics.report.ReportFileService
 import dev.crashteam.keanalytics.report.ReportService
-import dev.crashteam.keanalytics.repository.mongo.CategoryRepository
 import dev.crashteam.keanalytics.repository.mongo.ReportRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
 import dev.crashteam.keanalytics.service.ProductServiceAnalytics
@@ -33,7 +32,6 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toMono
 import reactor.kotlin.core.publisher.toFlux
-import reactor.kotlin.core.publisher.toMono
 import java.math.RoundingMode
 import java.security.Principal
 import java.time.*
@@ -51,7 +49,6 @@ class MarketDbApiV2Controller(
     private val reportFileService: ReportFileService,
     private val reportService: ReportService,
     private val reportRepository: ReportRepository,
-    private val categoryRepository: CategoryRepository,
     private val productServiceAnalytics: ProductServiceAnalytics,
     private val promoCodeService: PromoCodeService,
     private val conversionService: ConversionService,
@@ -222,13 +219,10 @@ class MarketDbApiV2Controller(
                     // Save report job
                     return@flatMap reportRepository.findByRequestIdAndSellerLink(idempotenceKey, sellerLink)
                         .flatMap { report ->
-                            if (report.status != ReportStatus.FAILED) {
-                                return@flatMap ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                    this.reportId = report.reportId
-                                    this.jobId = UUID.fromString(report.jobId)
-                                }).toMono()
-                            }
-                            Mono.create { ResponseEntity.badRequest().build<GetReportBySeller200Response>() }
+                            ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                                this.reportId = report.reportId
+                                this.jobId = UUID.fromString(report.jobId)
+                            }).toMono()
                         }.switchIfEmpty(Mono.defer {
                             val jobId = UUID.randomUUID().toString()
                             reportRepository.save(
@@ -257,7 +251,7 @@ class MarketDbApiV2Controller(
     }
 
     override fun getReportByCategory(
-        path: MutableList<Long>,
+        categoryId: Long,
         period: Int,
         idempotenceKey: String,
         exchange: ServerWebExchange
@@ -285,69 +279,39 @@ class MarketDbApiV2Controller(
                             .build<GetReportBySeller200Response>().toMono()
                     }
 
-                    val categoryDocumentMono = Mono.defer {
-                        if (path.size == 1) {
-                            categoryRepository.findByPublicId(path.first())
-                        } else {
-                            val categoriesMonoList = path.map { categoryId ->
-                                categoryRepository.findByPublicId(categoryId)
+                    val jobId = UUID.randomUUID().toString()
+                    reportRepository.findByRequestIdAndCategoryPublicId(idempotenceKey, categoryId)
+                        .flatMap { report ->
+                            return@flatMap ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                                this.jobId = UUID.fromString(jobId)
+                                this.reportId = report.reportId
+                            }).toMono()
+                        }.switchIfEmpty(Mono.defer {
+                            reportRepository.save(
+                                ReportDocument(
+                                    reportId = null,
+                                    requestId = idempotenceKey,
+                                    jobId = jobId,
+                                    userId = userDocument.userId,
+                                    period = null,
+                                    interval = period,
+                                    createdAt = LocalDateTime.now(),
+                                    sellerLink = null,
+                                    categoryPublicId = categoryId,
+                                    reportType = ReportType.CATEGORY,
+                                    status = ReportStatus.PROCESSING,
+                                    version = ReportVersion.V2
+                                )
+                            ).flatMap {
+                                ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                                    this.jobId = UUID.fromString(jobId)
+                                }).toMono()
                             }
-                            Flux.concat(categoriesMonoList).collectList().flatMap { categories ->
-                                val sb = StringBuilder()
-                                for (category in categories) {
-                                    sb.append(",${category.title}")
-                                }
-                                sb.append(",")
-                                sb.toString().toMono()
-                            }.flatMap { titlePath ->
-                                categoryRepository.findByPath(titlePath).next()
-                            }
-                        }
-                    }
-                    categoryDocumentMono.flatMap { categoryDocument ->
-                        val jobId = UUID.randomUUID().toString()
-                        reportRepository.findByRequestIdAndCategoryPublicId(idempotenceKey, categoryDocument.publicId)
-                            .flatMap { report ->
-                                if (report.status != ReportStatus.FAILED) {
-                                    return@flatMap ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                        this.jobId = UUID.fromString(jobId)
-                                        this.reportId = report.reportId
-                                    }).toMono()
-                                }
-                                Mono.create { ResponseEntity.badRequest().build<GetReportBySeller200Response>() }
-                            }.switchIfEmpty(Mono.defer {
-                                val categoryTitlePath = if (categoryDocument.path == null) {
-                                    listOf(categoryDocument.title)
-                                } else {
-                                    categoryDocument.path.split(",").filter { it.isNotEmpty() }
-                                }
-                                reportRepository.save(
-                                    ReportDocument(
-                                        reportId = null,
-                                        requestId = idempotenceKey,
-                                        jobId = jobId,
-                                        userId = userDocument.userId,
-                                        period = null,
-                                        interval = period,
-                                        createdAt = LocalDateTime.now(),
-                                        sellerLink = null,
-                                        categoryPublicId = categoryDocument.publicId,
-                                        categoryPath = categoryTitlePath,
-                                        reportType = ReportType.CATEGORY,
-                                        status = ReportStatus.PROCESSING,
-                                        version = ReportVersion.V2
-                                    )
-                                ).flatMap {
-                                    ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                        this.jobId = UUID.fromString(jobId)
-                                    }).toMono()
-                                }
-                            })
-                    }.switchIfEmpty(Mono.defer {
-                        log.warn { "Failed to generate report by category. Category not found" }
-                        ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
-                    })
-                }
+                        })
+                }.switchIfEmpty(Mono.defer {
+                    log.warn { "Failed to generate report by category. Category not found" }
+                    ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
+                })
         }.doOnError { log.error(it) { "Failed to generate report by category" } }
     }
 

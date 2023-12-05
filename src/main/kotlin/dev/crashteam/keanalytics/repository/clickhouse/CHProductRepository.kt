@@ -265,7 +265,89 @@ class CHProductRepository(
 
             SELECT date, sum(order_amount) AS order_amount FROM product_sales GROUP BY date
         """.trimIndent()
+        private val GET_SELLER_SALES_REPORT = """
+            SELECT product_id,
+                   anyLast(seller_title)        AS seller_title,
+                   anyLast(seller_id)           AS seller_id,
+                   anyLast(latest_category_id)  AS latest_category_id,
+                   groupArray(order_amount)     AS order_graph,
+                   groupArray(available_amount) AS available_amount_graph,
+                   groupArray(price)            AS price_graph,
+                   anyLast(available_amount)    AS available_amounts,
+                   anyLast(price)               AS purchase_price,
+                   sum(sales)                   AS sales,
+                   (dictGet('kazanex.categories_hierarchical_dictionary', 'title', latest_category_id)) AS category_name,
+                   anyLast(name)                                                                        AS name,
+                   count() OVER () AS total
+            FROM (
+                     SELECT product_id,
+                            max(total_orders_amount) - min(total_orders_amount)                                      AS order_amount,
+                            min(total_available_amount)                                                              AS available_amount,
+                            quantile(purchase_price)                                                                 AS price,
+                            (max(total_orders_amount) - min(total_orders_amount)) * (quantile(purchase_price) / 100) AS sales,
+                            anyLast(seller_title)                                                                    AS seller_title,
+                            anyLast(seller_id)                                                                       AS seller_id,
+                            anyLast(latest_category_id)                                                              AS latest_category_id,
+                            anyLast(title)                                                                           AS name
+                     FROM kazanex.product
+                     WHERE seller_link = ?
+                       AND timestamp BETWEEN ? AND ?
+                     GROUP BY product_id, toDate(timestamp) AS date
+                     ORDER BY date
+                     )
+            GROUP BY product_id
+            LIMIT ? OFFSET ?
+        """.trimIndent()
     }
+    private val GET_CATEGORY_SALES_REPORT = """
+        SELECT product_id,
+               anyLast(seller_title)                                                                AS seller_title,
+               anyLast(seller_id)                                                                   AS seller_id,
+               anyLast(latest_category_id)                                                          AS latest_category_id,
+               groupArray(order_amount)                                                             AS order_graph,
+               groupArray(available_amount)                                                         AS available_amount_graph,
+               groupArray(price)                                                                    AS price_graph,
+               anyLast(available_amount)                                                            AS available_amounts,
+               anyLast(price)                                                                       AS purchase_price,
+               sum(sales)                                                                           AS sales,
+               (dictGet('kazanex.categories_hierarchical_dictionary', 'title', latest_category_id)) AS category_name,
+               anyLast(name)                                                                        AS name,
+               count() OVER ()                                                                      AS total
+        FROM (
+                 SELECT product_id,
+                        max(total_orders_amount) - min(total_orders_amount)                                      AS order_amount,
+                        min(total_available_amount)                                                              AS available_amount,
+                        quantile(purchase_price)                                                                 AS price,
+                        (max(total_orders_amount) - min(total_orders_amount)) * (quantile(purchase_price) / 100) AS sales,
+                        anyLast(seller_title)                                                                    AS seller_title,
+                        anyLast(seller_id)                                                                       AS seller_id,
+                        anyLast(latest_category_id)                                                              AS latest_category_id,
+                        anyLast(title)                                                                           AS name
+                 FROM (
+                          SELECT timestamp,
+                                 product_id,
+                                 total_orders_amount,
+                                 total_available_amount,
+                                 available_amount,
+                                 purchase_price,
+                                 seller_title,
+                                 seller_id,
+                                 latest_category_id,
+                                 title
+                          FROM kazanex.product
+                          WHERE timestamp BETWEEN ? AND ?
+                            AND latest_category_id IN
+                                if(length(dictGetDescendants('categories_hierarchical_dictionary', ?, 0)) >
+                                   0,
+                                   dictGetDescendants('categories_hierarchical_dictionary', ?, 0),
+                                   array(?))
+                          )
+                 GROUP BY product_id, toDate(timestamp) AS date
+                 ORDER BY date
+                 )
+        GROUP BY product_id
+        LIMIT ? OFFSET ?
+    """.trimIndent()
 
     fun getProductAdditionalInfo(
         productId: String,
@@ -351,6 +433,34 @@ class CHProductRepository(
             GET_SELLER_ORDER_DYNAMIC,
             SellerOrderDynamicMapper(),
             sellerLink, fromTime, toTime
+        )
+    }
+
+    fun getSellerSalesForReport(
+        sellerLink: String,
+        fromTime: LocalDateTime,
+        toTime: LocalDateTime,
+        limit: Int,
+        offset: Int,
+    ): List<ChProductSalesReport> {
+        return jdbcTemplate.query(
+            GET_SELLER_SALES_REPORT,
+            ProductSalesReportMapper(),
+            sellerLink, fromTime, toTime, limit, offset
+        )
+    }
+
+    fun getCategorySalesForReport(
+        categoryId: Long,
+        fromTime: LocalDateTime,
+        toTime: LocalDateTime,
+        limit: Int,
+        offset: Int
+    ): List<ChProductSalesReport> {
+        return jdbcTemplate.query(
+            GET_CATEGORY_SALES_REPORT,
+            ProductSalesReportMapper(),
+            fromTime, toTime, categoryId, categoryId, categoryId, limit, offset
         )
     }
 
