@@ -289,12 +289,12 @@ class ReportFileService(
 
                 9 -> {
                     cell.cellFormula =
-                        "CHOOSE(MATCH((SUMIF(\$I\$2:\$I$totalRowCount,\">\"&\$I$columnCursor)+\$I$columnCursor)/SUM(\$I\$2:\$I$totalRowCount),{0,0.81,0.96}),\"A\",\"B\",\"C\")"
+                        "CHOOSE(MATCH((SUMIF(\$H\$2:\$H$totalRowCount,\">\"&\$H$columnCursor)+\$H$columnCursor)/SUM(\$H\$2:\$H$totalRowCount),{0,0.81,0.96}),\"A\",\"B\",\"C\")"
                 }
 
                 10 -> {
                     cell.cellFormula =
-                        "CHOOSE(MATCH((SUMIF(\$J\$2:\$J$totalRowCount,\">\"&\$J$columnCursor)+\$J$columnCursor)/SUM(\$J\$2:\$J$totalRowCount),{0,0.81,0.96}),\"A\",\"B\",\"C\")"
+                        "CHOOSE(MATCH((SUMIF(\$I\$2:\$J$totalRowCount,\">\"&\$I$columnCursor)+\$I$columnCursor)/SUM(\$I\$2:\$I$totalRowCount),{0,0.81,0.96}),\"A\",\"B\",\"C\")"
                 }
             }
         }
