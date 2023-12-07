@@ -6,6 +6,7 @@ import dev.crashteam.keanalytics.stream.listener.redis.BatchStreamListener
 import dev.crashteam.keanalytics.stream.listener.redis.KeCategoryStreamListener
 import dev.crashteam.keanalytics.stream.listener.redis.KeProductItemStreamListener
 import dev.crashteam.keanalytics.stream.listener.redis.KeProductPositionStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.payment.PaymentStreamListener
 import dev.crashteam.keanalytics.stream.service.PendingMessageService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -29,6 +30,7 @@ class PendingMessageScheduler : Job {
         val keProductItemStreamListener = appContext.getBean(KeProductItemStreamListener::class.java)
         val keProductPositionStreamListener = appContext.getBean(KeProductPositionStreamListener::class.java)
         val keCategoryStreamListener = appContext.getBean(KeCategoryStreamListener::class.java)
+        val paymentStreamListener = appContext.getBean(PaymentStreamListener::class.java)
         runBlocking {
             val productPendingMessageTask = async {
                 processPendingMessage(
@@ -36,7 +38,7 @@ class PendingMessageScheduler : Job {
                     consumerGroup = redisProperties.stream.keProductInfo.consumerGroup,
                     consumerName = redisProperties.stream.keProductInfo.consumerName,
                     batchListener = keProductItemStreamListener,
-                    pendingMessageService
+                    pendingMessageService = pendingMessageService,
                 )
             }
             val productPositionPendingMessageTask = async {
@@ -45,7 +47,8 @@ class PendingMessageScheduler : Job {
                     consumerGroup = redisProperties.stream.keProductPosition.consumerGroup,
                     consumerName = redisProperties.stream.keProductPosition.consumerName,
                     listener = keProductPositionStreamListener,
-                    pendingMessageService
+                    pendingMessageService= pendingMessageService,
+                    targetType = String::class.java
                 )
             }
             val categoryPendingMessageTask = async {
@@ -54,7 +57,8 @@ class PendingMessageScheduler : Job {
                     consumerGroup = redisProperties.stream.keCategoryInfo.consumerGroup,
                     consumerName = redisProperties.stream.keCategoryInfo.consumerName,
                     listener = keCategoryStreamListener,
-                    pendingMessageService
+                    pendingMessageService = pendingMessageService,
+                    targetType = String::class.java
                 )
             }
             val paymentTask = async {
@@ -62,8 +66,9 @@ class PendingMessageScheduler : Job {
                     streamKey = redisProperties.stream.payment.streamName,
                     consumerGroup = redisProperties.stream.payment.consumerGroup,
                     consumerName = redisProperties.stream.payment.consumerName,
-                    listener = keCategoryStreamListener,
-                    pendingMessageService
+                    listener = paymentStreamListener,
+                    pendingMessageService = pendingMessageService,
+                    targetType = ByteArray::class.java
                 )
             }
             awaitAll(
@@ -95,12 +100,13 @@ class PendingMessageScheduler : Job {
         }
     }
 
-    private suspend fun processPendingMessage(
+    private suspend fun <V> processPendingMessage(
         streamKey: String,
         consumerGroup: String,
         consumerName: String,
-        listener: StreamListener<String, ObjectRecord<String, String>>,
-        pendingMessageService: PendingMessageService
+        listener: StreamListener<String, ObjectRecord<String, V>>,
+        pendingMessageService: PendingMessageService,
+        targetType: Class<V>
     ) {
         try {
             log.info { "Processing pending message by consumer $consumerName" }
@@ -109,6 +115,7 @@ class PendingMessageScheduler : Job {
                 consumerGroupName = consumerGroup,
                 consumerName = consumerName,
                 listener = listener,
+                targetType = targetType,
             )
         } catch (e: Exception) {
             log.error(e) { "Processing pending message failed" }
