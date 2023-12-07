@@ -1,10 +1,11 @@
 package dev.crashteam.keanalytics.stream.scheduler
 
 import dev.crashteam.keanalytics.config.properties.RedisProperties
-import dev.crashteam.keanalytics.stream.listener.BatchStreamListener
-import dev.crashteam.keanalytics.stream.listener.KeCategoryStreamListener
-import dev.crashteam.keanalytics.stream.listener.KeProductItemStreamListener
-import dev.crashteam.keanalytics.stream.listener.KeProductPositionStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.BatchStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.KeCategoryStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.KeProductItemStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.KeProductPositionStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.payment.PaymentStreamListener
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.reactor.awaitSingleOrNull
@@ -32,9 +33,11 @@ class MessageScheduler(
     private val keProductPositionSubscription: StreamReceiver<String, ObjectRecord<String, String>>,
     private val keProductSubscription: StreamReceiver<String, ObjectRecord<String, String>>,
     private val keCategorySubscription: StreamReceiver<String, ObjectRecord<String, String>>,
+    private val paymentSubscription: StreamReceiver<String, ObjectRecord<String, ByteArray>>,
     private val keProductPositionStreamListener: KeProductPositionStreamListener,
     private val keProductStreamListener: KeProductItemStreamListener,
     private val keCategoryStreamListener: KeCategoryStreamListener,
+    private val paymentStreamListener: PaymentStreamListener,
     private val redisProperties: RedisProperties,
     private val messageReactiveRedisTemplate: ReactiveRedisTemplate<String, String>,
     private val retryTemplate: RetryTemplate,
@@ -76,7 +79,21 @@ class MessageScheduler(
                                 keCategoryStreamListener
                             )
                         }
-                        awaitAll(createPositionConsumerTask, createProductConsumerTask, createCategoryConsumerTask)
+                        val paymentConsumerTask = async {
+                            createConsumer(
+                                redisProperties.stream.payment.streamName,
+                                redisProperties.stream.payment.consumerGroup,
+                                redisProperties.stream.payment.consumerName,
+                                paymentSubscription,
+                                paymentStreamListener,
+                            )
+                        }
+                        awaitAll(
+                            createPositionConsumerTask,
+                            createProductConsumerTask,
+                            createCategoryConsumerTask,
+                            paymentConsumerTask
+                        )
                     } catch (e: Exception) {
                         log.error(e) { "Exception during creating consumers" }
                         throw e
@@ -87,12 +104,12 @@ class MessageScheduler(
         }
     }
 
-    private fun createConsumer(
+    private fun <V> createConsumer(
         streamKey: String,
         consumerGroup: String,
         consumerName: String,
-        receiver: StreamReceiver<String, ObjectRecord<String, String>>,
-        listener: StreamListener<String, ObjectRecord<String, String>>,
+        receiver: StreamReceiver<String, ObjectRecord<String, V>>,
+        listener: StreamListener<String, ObjectRecord<String, V>>,
     ) {
         val consumer = Consumer.from(consumerGroup, consumerName)
         receiver.receive(
@@ -108,12 +125,12 @@ class MessageScheduler(
             }).subscribe()
     }
 
-    private fun creatBatchConsumer(
+    private fun <V> creatBatchConsumer(
         streamKey: String,
         consumerGroup: String,
         consumerName: String,
-        receiver: StreamReceiver<String, ObjectRecord<String, String>>,
-        listener: BatchStreamListener<String, ObjectRecord<String, String>>,
+        receiver: StreamReceiver<String, ObjectRecord<String, V>>,
+        listener: BatchStreamListener<String, ObjectRecord<String, V>>,
     ) {
         val consumer = Consumer.from(consumerGroup, consumerName)
         receiver.receive(

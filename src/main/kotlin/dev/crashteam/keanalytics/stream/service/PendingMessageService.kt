@@ -1,9 +1,8 @@
 package dev.crashteam.keanalytics.stream.service
 
 import kotlinx.coroutines.reactor.awaitSingleOrNull
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import dev.crashteam.keanalytics.stream.listener.BatchStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.BatchStreamListener
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import org.springframework.data.domain.Range
 import org.springframework.data.redis.connection.ReactiveRedisConnection

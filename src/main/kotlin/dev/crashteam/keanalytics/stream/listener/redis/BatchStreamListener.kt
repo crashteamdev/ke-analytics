@@ -1,4 +1,4 @@
-package dev.crashteam.keanalytics.stream.listener
+package dev.crashteam.keanalytics.stream.listener.redis
 
 import org.springframework.data.redis.connection.stream.Record
 

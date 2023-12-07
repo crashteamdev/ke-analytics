@@ -1,16 +1,16 @@
 package dev.crashteam.keanalytics.stream.scheduler
 
+import dev.crashteam.keanalytics.config.properties.RedisProperties
+import dev.crashteam.keanalytics.extensions.getApplicationContext
+import dev.crashteam.keanalytics.stream.listener.redis.BatchStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.KeCategoryStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.KeProductItemStreamListener
+import dev.crashteam.keanalytics.stream.listener.redis.KeProductPositionStreamListener
+import dev.crashteam.keanalytics.stream.service.PendingMessageService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import dev.crashteam.keanalytics.config.properties.RedisProperties
-import dev.crashteam.keanalytics.extensions.getApplicationContext
-import dev.crashteam.keanalytics.stream.listener.BatchStreamListener
-import dev.crashteam.keanalytics.stream.listener.KeCategoryStreamListener
-import dev.crashteam.keanalytics.stream.listener.KeProductItemStreamListener
-import dev.crashteam.keanalytics.stream.listener.KeProductPositionStreamListener
-import dev.crashteam.keanalytics.stream.service.PendingMessageService
 import org.quartz.DisallowConcurrentExecution
 import org.quartz.Job
 import org.quartz.JobExecutionContext
@@ -57,7 +57,21 @@ class PendingMessageScheduler : Job {
                     pendingMessageService
                 )
             }
-            awaitAll(productPendingMessageTask, productPositionPendingMessageTask, categoryPendingMessageTask)
+            val paymentTask = async {
+                processPendingMessage(
+                    streamKey = redisProperties.stream.payment.streamName,
+                    consumerGroup = redisProperties.stream.payment.consumerGroup,
+                    consumerName = redisProperties.stream.payment.consumerName,
+                    listener = keCategoryStreamListener,
+                    pendingMessageService
+                )
+            }
+            awaitAll(
+                productPendingMessageTask,
+                productPositionPendingMessageTask,
+                categoryPendingMessageTask,
+                paymentTask
+            )
         }
     }
 

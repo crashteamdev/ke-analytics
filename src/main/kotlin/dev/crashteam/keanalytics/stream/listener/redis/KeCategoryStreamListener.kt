@@ -1,19 +1,15 @@
-package dev.crashteam.keanalytics.stream.listener
+package dev.crashteam.keanalytics.stream.listener.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import dev.crashteam.keanalytics.client.kazanexpress.model.RootCategoriesResponse
-import dev.crashteam.keanalytics.client.kazanexpress.model.SimpleCategory
 import dev.crashteam.keanalytics.domain.mongo.CategoryDocument
 import dev.crashteam.keanalytics.domain.mongo.CategoryTreeDocument
 import dev.crashteam.keanalytics.repository.mongo.CategoryDao
 import dev.crashteam.keanalytics.repository.mongo.CategoryTreeDao
 import dev.crashteam.keanalytics.stream.model.KeCategoryStreamRecord
-import org.springframework.context.ApplicationContext
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.stream.StreamListener
 import org.springframework.stereotype.Component

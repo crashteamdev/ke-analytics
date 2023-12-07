@@ -99,6 +99,10 @@ redis:
       streamName: ke-category-stream
       consumerGroup: ke-analytics-category-group
       consumerName: ke-analytics-category-consumer
+    payment:
+      streamName: payment-stream
+      consumerGroup: ke-analytics-payment-group
+      consumerName: ke-analytics-payment-consumer
 
 freekassa:
   baseUrl: https://api.freekassa.ru
