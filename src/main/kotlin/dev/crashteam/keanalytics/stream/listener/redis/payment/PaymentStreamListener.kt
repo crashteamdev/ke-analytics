@@ -15,8 +15,13 @@ class PaymentStreamListener(
 ) : StreamListener<String, ObjectRecord<String, ByteArray>> {
 
     override fun onMessage(message: ObjectRecord<String, ByteArray>) {
-        val paymentEvent = PaymentEvent.parseFrom(message.value)
-        log.info { "Listen payment event: $paymentEvent" }
-        paymentEventHandlers.find { it.isHandle(paymentEvent) }?.handle(listOf(paymentEvent))
+        try {
+            val paymentEvent = PaymentEvent.parseFrom(message.value)
+            log.info { "Listen payment event: $paymentEvent" }
+            paymentEventHandlers.find { it.isHandle(paymentEvent) }?.handle(listOf(paymentEvent))
+        } catch (e: Exception) {
+            log.error(e) { "Exception during handle payment event" }
+            throw e
+        }
     }
 }
