@@ -182,28 +182,28 @@ class RedisConfig(
         return StreamReceiver.create(redisConnectionFactory, options)
     }
 
-    @Bean
-    fun paymentSubscription(
-        redisConnectionFactory: ReactiveRedisConnectionFactory
-    ): StreamReceiver<String, ObjectRecord<String, ByteArray>> {
-        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
-            .targetType(ByteArray::class.java).build()
-        try {
-//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
-//                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
-//                redisProperties.stream.keCategoryInfo.consumerGroup
-//            )?.subscribe()
-            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
-                ByteBuffer.wrap(redisProperties.stream.payment.streamName.toByteArray()),
-                redisProperties.stream.payment.consumerGroup,
-                ReadOffset.from("0-0"),
-                true
-            ).subscribe()
-        } catch (e: RedisSystemException) {
-            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.payment.consumerGroup}" }
-        }
-        return StreamReceiver.create(redisConnectionFactory, options)
-    }
+//    @Bean
+//    fun paymentSubscription(
+//        redisConnectionFactory: ReactiveRedisConnectionFactory
+//    ): StreamReceiver<String, ObjectRecord<String, ByteArray>> {
+//        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
+//            .targetType(ByteArray::class.java).build()
+//        try {
+////            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
+////                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
+////                redisProperties.stream.keCategoryInfo.consumerGroup
+////            )?.subscribe()
+//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
+//                ByteBuffer.wrap(redisProperties.stream.payment.streamName.toByteArray()),
+//                redisProperties.stream.payment.consumerGroup,
+//                ReadOffset.from("0-0"),
+//                true
+//            ).subscribe()
+//        } catch (e: RedisSystemException) {
+//            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.payment.consumerGroup}" }
+//        }
+//        return StreamReceiver.create(redisConnectionFactory, options)
+//    }
 
 
     private inline fun <reified T> redisJsonSerializer(

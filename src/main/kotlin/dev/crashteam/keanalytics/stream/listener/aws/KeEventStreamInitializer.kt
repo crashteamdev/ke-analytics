@@ -9,6 +9,6 @@ class KeEventStreamInitializer(
 ) {
     @PostConstruct
     fun initialize() {
-        //keEventStreamAsyncLoop.startPaymentStreamLoop()
+        keEventStreamAsyncLoop.startPaymentStreamLoop()
     }
 }

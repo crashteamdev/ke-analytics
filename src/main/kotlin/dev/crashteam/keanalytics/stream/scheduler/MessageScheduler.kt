@@ -33,7 +33,7 @@ class MessageScheduler(
     private val keProductPositionSubscription: StreamReceiver<String, ObjectRecord<String, String>>,
     private val keProductSubscription: StreamReceiver<String, ObjectRecord<String, String>>,
     private val keCategorySubscription: StreamReceiver<String, ObjectRecord<String, String>>,
-    private val paymentSubscription: StreamReceiver<String, ObjectRecord<String, ByteArray>>,
+//    private val paymentSubscription: StreamReceiver<String, ObjectRecord<String, ByteArray>>,
     private val keProductPositionStreamListener: KeProductPositionStreamListener,
     private val keProductStreamListener: KeProductItemStreamListener,
     private val keCategoryStreamListener: KeCategoryStreamListener,
@@ -79,20 +79,20 @@ class MessageScheduler(
                                 keCategoryStreamListener
                             )
                         }
-                        val paymentConsumerTask = async {
-                            createConsumer(
-                                redisProperties.stream.payment.streamName,
-                                redisProperties.stream.payment.consumerGroup,
-                                redisProperties.stream.payment.consumerName,
-                                paymentSubscription,
-                                paymentStreamListener,
-                            )
-                        }
+//                        val paymentConsumerTask = async {
+//                            createConsumer(
+//                                redisProperties.stream.payment.streamName,
+//                                redisProperties.stream.payment.consumerGroup,
+//                                redisProperties.stream.payment.consumerName,
+//                                paymentSubscription,
+//                                paymentStreamListener,
+//                            )
+//                        }
                         awaitAll(
                             createPositionConsumerTask,
                             createProductConsumerTask,
                             createCategoryConsumerTask,
-                            paymentConsumerTask
+//                            paymentConsumerTask
                         )
                     } catch (e: Exception) {
                         log.error(e) { "Exception during creating consumers" }

@@ -61,21 +61,21 @@ class PendingMessageScheduler : Job {
                     targetType = String::class.java
                 )
             }
-            val paymentTask = async {
-                processPendingMessage(
-                    streamKey = redisProperties.stream.payment.streamName,
-                    consumerGroup = redisProperties.stream.payment.consumerGroup,
-                    consumerName = redisProperties.stream.payment.consumerName,
-                    listener = paymentStreamListener,
-                    pendingMessageService = pendingMessageService,
-                    targetType = ByteArray::class.java
-                )
-            }
+//            val paymentTask = async {
+//                processPendingMessage(
+//                    streamKey = redisProperties.stream.payment.streamName,
+//                    consumerGroup = redisProperties.stream.payment.consumerGroup,
+//                    consumerName = redisProperties.stream.payment.consumerName,
+//                    listener = paymentStreamListener,
+//                    pendingMessageService = pendingMessageService,
+//                    targetType = ByteArray::class.java
+//                )
+//            }
             awaitAll(
                 productPendingMessageTask,
                 productPositionPendingMessageTask,
                 categoryPendingMessageTask,
-                paymentTask
+//                paymentTask
             )
         }
     }
