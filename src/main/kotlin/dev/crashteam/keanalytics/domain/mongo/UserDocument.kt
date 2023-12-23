@@ -56,7 +56,7 @@ object DefaultSubscription : UserSubscription(1, "default") {
     }
 
     override fun shopReports(): Int {
-        return 3
+        return 100
     }
 
     override fun categoryReports(): Int {
@@ -74,11 +74,11 @@ object AdvancedSubscription : UserSubscription(2, "advanced") {
     }
 
     override fun shopReports(): Int {
-        return 6
+        return 100
     }
 
     override fun categoryReports(): Int {
-        return 2
+        return 100
     }
 
     override fun price(): Int {
@@ -92,11 +92,11 @@ object ProSubscription : UserSubscription(3, "pro") {
     }
 
     override fun shopReports(): Int {
-        return 15
+        return 100
     }
 
     override fun categoryReports(): Int {
-        return 4
+        return 100
     }
 
     override fun price(): Int {
