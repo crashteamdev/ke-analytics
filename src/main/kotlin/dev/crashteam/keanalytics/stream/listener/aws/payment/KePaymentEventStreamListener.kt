@@ -1,12 +1,11 @@
 package dev.crashteam.keanalytics.stream.listener.aws.payment
 
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.clientlibrary.types.InitializationInput
 import com.amazonaws.services.kinesis.clientlibrary.types.ProcessRecordsInput
 import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownInput
-import dev.crashteam.payment.PaymentEvent
 import dev.crashteam.keanalytics.stream.handler.aws.payment.PaymentEventHandler
 import dev.crashteam.keanalytics.stream.listener.aws.AwsStreamListener
+import dev.crashteam.payment.PaymentEvent
 import mu.KotlinLogging
 
 private val log = KotlinLogging.logger {}
@@ -35,7 +34,7 @@ class KePaymentEventStreamListener(
                 try {
                     handler?.handle(entries)
                 } catch (e: Exception) {
-                   log.error(e) { "Failed to handle event" }
+                    log.error(e) { "Failed to handle event" }
                 }
             }
         try {
@@ -48,10 +47,11 @@ class KePaymentEventStreamListener(
 
     override fun shutdown(shutdownInput: ShutdownInput) {
         try {
-            log.info { "[Ke-Payment-Stream] Shutting down event processor for $partitionId" }
-            if (shutdownInput.shutdownReason == ShutdownReason.TERMINATE) {
-                shutdownInput.checkpointer.checkpoint()
-            }
+            log.info { "[Ke-Payment-Stream] Shutting down event processor for $partitionId." +
+                    " reason=${shutdownInput.shutdownReason}" }
+//            if (shutdownInput.shutdownReason == ShutdownReason.TERMINATE) {
+//                shutdownInput.checkpointer.checkpoint()
+//            }
         } catch (e: Exception) {
             log.error(e) { "[Ke-Payment-Stream] Failed to checkpoint on shutdown" }
         }
