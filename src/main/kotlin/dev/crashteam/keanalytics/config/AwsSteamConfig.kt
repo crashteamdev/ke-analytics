@@ -15,6 +15,7 @@ import dev.crashteam.keanalytics.stream.listener.aws.payment.KePaymentEventStrea
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Scope
 import java.time.Duration
 import java.util.*
 
@@ -28,6 +29,7 @@ class AwsSteamConfig(
     private lateinit var appName: String
 
     @Bean
+    @Scope(value = "prototype")
     fun paymentStreamWorker(): Worker {
         val awsCredentials = BasicAWSCredentials(awsStreamProperties.accessKey, awsStreamProperties.secretKey)
         val consumerConfig = KinesisClientLibConfiguration(
