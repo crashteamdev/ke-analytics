@@ -56,7 +56,7 @@ object DemoSubscription : UserSubscription(100, "demo") {
     }
 
     override fun shopReports(): Int {
-        return 100
+        return 10
     }
 
     override fun categoryReports(): Int {
