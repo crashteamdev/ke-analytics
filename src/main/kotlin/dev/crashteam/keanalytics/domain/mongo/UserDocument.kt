@@ -64,7 +64,7 @@ object DemoSubscription : UserSubscription(100, "demo") {
     }
 
     override fun price(): Int {
-        return 1000
+        return 999999
     }
 }
 
