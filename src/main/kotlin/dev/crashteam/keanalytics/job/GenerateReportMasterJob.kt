@@ -31,7 +31,7 @@ class GenerateReportMasterJob : Job {
                         scheduleShopReportJob(jobIdentity, reportDoc, schedulerFactoryBean)
                     }
                     ReportType.CATEGORY -> {
-                        log.info { "Schedule job report. categoryPath=${reportDoc.categoryPath}; jobId=${reportDoc.jobId}" }
+                        log.info { "Schedule job report. categoryPubliId=${reportDoc.categoryPublicId}; jobId=${reportDoc.jobId}" }
                         val jobIdentity = "${reportDoc.categoryPublicId}-category-report-${reportDoc.jobId}-Job"
                         schedulerCategoryReportJob(jobIdentity, reportDoc, schedulerFactoryBean)
                     }
@@ -88,7 +88,6 @@ class GenerateReportMasterJob : Job {
             afterPropertiesSet()
         }.getObject()
         jobDetail.jobDataMap["categoryPublicId"] = reportDoc.categoryPublicId
-        jobDetail.jobDataMap["categoryPath"] = reportDoc.categoryPath?.joinToString(",")
         jobDetail.jobDataMap["interval"] = reportDoc.interval
         jobDetail.jobDataMap["job_id"] = reportDoc.jobId
         jobDetail.jobDataMap["user_id"] = reportDoc.userId

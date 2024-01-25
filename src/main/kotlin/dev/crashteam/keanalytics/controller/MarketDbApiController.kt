@@ -487,7 +487,7 @@ class MarketDbApiController(
         @RequestParam(value = "productId", required = true) @Valid productId: Long,
         @RequestParam(value = "skuId", required = true) @Valid skuId: Long
     ): ResponseEntity<List<SimilarItemView>> {
-        val url = "http://ke-space:8080/v1/similar/products?productId=$productId&skuId=$skuId"
+        val url = "http://ke-space:8080/space/v1/similar/products?productId=$productId&skuId=$skuId"
         val httpHeaders = HttpHeaders().apply {
             set("Authorization", "Basic cHJvbWV0aGV1czptYXJrZXRsb2xwYXNzd2Q=")
             set("X-Request-Id", UUID.randomUUID().toString())
@@ -497,6 +497,7 @@ class MarketDbApiController(
         if (responseEntity.statusCode.is4xxClientError) {
             return ResponseEntity.badRequest().build()
         } else if (responseEntity.statusCode.is5xxServerError) {
+            log.warn { "Bad similar item response: ${responseEntity.body}" }
             return ResponseEntity.internalServerError().build()
         }
 

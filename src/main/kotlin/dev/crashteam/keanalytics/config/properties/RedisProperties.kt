@@ -16,6 +16,7 @@ data class RedisStreamProperty(
     val keProductInfo: RedisStreamPropertyDetail,
     val keProductPosition: RedisStreamPropertyDetail,
     val keCategoryInfo: RedisStreamPropertyDetail,
+    val payment: RedisStreamPropertyDetail,
 )
 
 data class RedisStreamPropertyDetail(

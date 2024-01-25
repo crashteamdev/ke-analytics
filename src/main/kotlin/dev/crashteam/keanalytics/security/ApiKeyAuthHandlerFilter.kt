@@ -8,6 +8,7 @@ import org.springframework.web.server.ServerWebInputException
 import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.switchIfEmpty
 import reactor.kotlin.core.publisher.toMono
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -35,6 +36,8 @@ class ApiKeyAuthHandlerFilter(
             } else {
                 user.toMono()
             }
+        }.switchIfEmpty {
+            return@switchIfEmpty Mono.error(AuthorizationException("Not valid API key"))
         }.flatMap {
             chain.filter(exchange)
         }.onErrorResume {

@@ -150,6 +150,11 @@
             <artifactId>clickhouse-jdbc</artifactId>
             <version>0.4.6</version>
         </dependency>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>amazon-kinesis-client</artifactId>
+            <version>1.15.0</version>
+        </dependency>
 
         <!-- Kotlin -->
         <dependency>
@@ -187,7 +192,12 @@
         <dependency>
             <groupId>dev.crashteam</groupId>
             <artifactId>openapi-ke-analytics</artifactId>
-            <version>1.39-3b8dc72-server</version>
+            <version>1.40-9e7543d-server</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.crashteam</groupId>
+            <artifactId>payment-proto</artifactId>
+            <version>0.0.37</version>
         </dependency>
 
         <!-- Test -->
