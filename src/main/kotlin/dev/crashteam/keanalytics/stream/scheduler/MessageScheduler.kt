@@ -53,7 +53,7 @@ class MessageScheduler(
                     log.info { "Start receiving stream messages" }
                     try {
                         val createPositionConsumerTask = async {
-                            createConsumer(
+                            creatBatchConsumer(
                                 redisProperties.stream.keProductPosition.streamName,
                                 redisProperties.stream.keProductPosition.consumerGroup,
                                 redisProperties.stream.keProductPosition.consumerName,
