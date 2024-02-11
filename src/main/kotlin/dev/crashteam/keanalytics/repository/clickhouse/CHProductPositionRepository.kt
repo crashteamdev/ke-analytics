@@ -21,21 +21,15 @@ class CHProductPositionRepository(
 ) {
     private companion object {
         const val GET_PRODUCT_POSITION_HISTORY = """
-            SELECT timestamp,
-                category_id,
-                product_id,
-                sku_id,
-                position
+            SELECT date,
+                   anyLast(position) AS position
             FROM kazanex.product_position
-        WHERE timestamp BETWEEN ? AND ?
-            AND category_id IN
-                if(length(dictGetDescendants('categories_hierarchical_dictionary', ?, 0)) > 0,
-                    dictGetDescendants('categories_hierarchical_dictionary', ?, 0),
-                    array(?))
-            AND product_id = ?
-            AND sku_id = ?
-        GROUP BY toDate(timestamp) AS date
-        ORDER BY date
+            WHERE timestamp BETWEEN ? AND ?
+                AND category_id = ?
+                AND product_id = ?
+                AND sku_id = ?
+            GROUP BY toDate(timestamp) AS date
+            ORDER BY date WITH FILL FROM toDate(?) TO  toDate(?);
         """
     }
 
@@ -71,13 +65,13 @@ class CHProductPositionRepository(
     ) : PreparedStatementSetter {
         override fun setValues(ps: PreparedStatement) {
             var l = 1
-            ps.setObject(l++, fromTime)
-            ps.setObject(l++, toTime)
-            ps.setString(l++, categoryId)
-            ps.setString(l++, categoryId)
+            ps.setObject(l++, fromTime.toLocalDate())
+            ps.setObject(l++, toTime.toLocalDate())
             ps.setString(l++, categoryId)
             ps.setString(l++, productId)
             ps.setString(l++, skuId)
+            ps.setObject(l++, fromTime.toLocalDate())
+            ps.setObject(l++, toTime.toLocalDate())
         }
     }
 
