@@ -29,7 +29,7 @@ class CHProductPositionRepository(
                 AND product_id = ?
                 AND sku_id = ?
             GROUP BY toDate(timestamp) AS date
-            ORDER BY date WITH FILL FROM toDate(?) TO  toDate(?);
+            ORDER BY date WITH FILL FROM toDate(?) TO  toDate(?)
         """
     }
 
