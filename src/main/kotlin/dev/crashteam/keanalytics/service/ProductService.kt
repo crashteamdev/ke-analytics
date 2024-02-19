@@ -5,12 +5,9 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.InsertOneModel
 import com.mongodb.client.model.UpdateOneModel
 import com.mongodb.client.model.WriteModel
-import kotlinx.coroutines.reactive.awaitFirstOrNull
-import kotlinx.coroutines.reactive.awaitLast
-import kotlinx.coroutines.reactor.awaitSingle
-import kotlinx.coroutines.reactor.awaitSingleOrNull
-import mu.KotlinLogging
 import dev.crashteam.keanalytics.domain.mongo.*
+import dev.crashteam.keanalytics.repository.clickhouse.CHProductPositionRepository
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductPositionHistory
 import dev.crashteam.keanalytics.repository.mongo.CategoryRepository
 import dev.crashteam.keanalytics.repository.mongo.ProductChangeHistoryDao
 import dev.crashteam.keanalytics.repository.mongo.ProductPositionRepository
@@ -19,6 +16,11 @@ import dev.crashteam.keanalytics.repository.mongo.model.*
 import dev.crashteam.keanalytics.repository.mongo.pageable.PageResult
 import dev.crashteam.keanalytics.service.calculator.ProductHistoryCalculator
 import dev.crashteam.keanalytics.service.model.*
+import kotlinx.coroutines.reactive.awaitFirstOrNull
+import kotlinx.coroutines.reactive.awaitLast
+import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingleOrNull
+import mu.KotlinLogging
 import org.bson.Document
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate
@@ -27,9 +29,11 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 import java.math.BigDecimal
-import java.time.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import java.util.Date
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.stream.Stream
 import kotlin.math.abs
@@ -44,6 +48,7 @@ class ProductService(
     private val productHistoryCalculator: ProductHistoryCalculator,
     private val productPositionRepository: ProductPositionRepository,
     private val reactiveMongoTemplate: ReactiveMongoTemplate,
+    private val chProductPositionRepository: CHProductPositionRepository,
 ) {
 
     fun findProductByProperties(
@@ -424,48 +429,23 @@ class ProductService(
         skuId: Long,
         fromTime: LocalDateTime,
         toTime: LocalDateTime,
-    ): List<ProductPositionAggregate>? {
+    ): List<ChProductPositionHistory> {
         log.info {
             "Get product positions. categoryId=$categoryId; productId=$productId; skuId=$skuId;" +
                     " fromTime=$fromTime; toTime=$toTime"
         }
-        val productPositions =
-            productPositionRepository.findProductPositions(categoryId, productId, skuId, fromTime, toTime).collectList()
-                .awaitSingleOrNull() ?: return null
-        if (productPositions.isEmpty()) {
+        val productPositionHistory = chProductPositionRepository.getProductPositionHistory(
+            categoryId.toString(),
+            productId.toString(),
+            skuId.toString(),
+            fromTime,
+            toTime
+        )
+        if (productPositionHistory.isEmpty()) {
             return emptyList()
         }
-        val minFoundDate = productPositions.minOf { it.id?.date!! }
-        val datesList = Stream.iterate(minFoundDate.atStartOfDay()) { it.plusDays(1) }
-            .limit(ChronoUnit.DAYS.between(minFoundDate.atStartOfDay(), toTime) + 1).toList()
-        val resultProductPositions = mutableListOf<ProductPositionAggregate>()
-        var comparableIndex = 0
-        datesList.forEachIndexed { index, cursorDateTime ->
-            val cursorDate = cursorDateTime.toLocalDate()
-            if (comparableIndex >= productPositions.size) {
-                resultProductPositions.add(
-                    ProductPositionAggregate().apply {
-                        id = productPositions.first().id?.copy(date = cursorDate)
-                        position = 0
-                    }
-                )
-            } else {
-                val productPositionAggregate = productPositions[comparableIndex]
-                if (cursorDateTime.toLocalDate() == productPositionAggregate.id?.date) {
-                    resultProductPositions.add(productPositionAggregate)
-                    comparableIndex++
-                } else {
-                    resultProductPositions.add(
-                        ProductPositionAggregate().apply {
-                            id = productPositionAggregate.id?.copy(date = cursorDate)
-                            position = 0
-                        }
-                    )
-                }
-            }
-        }
 
-        return resultProductPositions
+        return productPositionHistory
     }
 
     private fun calculateAggregateProductHistory(

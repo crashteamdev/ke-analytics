@@ -46,9 +46,8 @@ class PendingMessageScheduler : Job {
                     streamKey = redisProperties.stream.keProductPosition.streamName,
                     consumerGroup = redisProperties.stream.keProductPosition.consumerGroup,
                     consumerName = redisProperties.stream.keProductPosition.consumerName,
-                    listener = keProductPositionStreamListener,
+                    batchListener = keProductPositionStreamListener,
                     pendingMessageService= pendingMessageService,
-                    targetType = String::class.java
                 )
             }
             val categoryPendingMessageTask = async {

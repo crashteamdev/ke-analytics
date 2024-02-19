@@ -1,7 +1,6 @@
 package dev.crashteam.keanalytics.repository.clickhouse.mapper
 
 import dev.crashteam.keanalytics.extensions.getNullableBigDecimal
-import dev.crashteam.keanalytics.extensions.getNullableBigDecimal
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductSalesHistory
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Component
