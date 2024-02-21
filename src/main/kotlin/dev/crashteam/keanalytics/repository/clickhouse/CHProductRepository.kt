@@ -41,8 +41,7 @@ class CHProductRepository(
                    full_price / 100 AS full_price,
                    purchase_price / 100 AS purchase_price,
                    photo_key,
-                   if(available_amount_diff < 0 OR available_amount_diff > 0 AND total_orders_amount_diff = 0,
-                      total_orders_amount_diff, available_amount_diff) * purchase_price / 100 AS sales_amount,
+                   order_amount * purchase_price AS sales_amount,
                    available_amount AS available_amount,
                    total_available_amount
             FROM (
