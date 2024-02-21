@@ -5,10 +5,8 @@ import dev.crashteam.keanalytics.report.ReportFileService
 import dev.crashteam.keanalytics.report.ReportService
 import dev.crashteam.keanalytics.repository.mongo.ReportRepository
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
-import dev.crashteam.keanalytics.service.ProductServiceAnalytics
-import dev.crashteam.keanalytics.service.PromoCodeService
-import dev.crashteam.keanalytics.service.SellerService
-import dev.crashteam.keanalytics.service.UserRestrictionService
+import dev.crashteam.keanalytics.service.*
+import dev.crashteam.keanalytics.service.exception.UserSubscriptionGiveawayException
 import dev.crashteam.keanalytics.service.model.PromoCodeCheckCode
 import dev.crashteam.keanalytics.service.model.PromoCodeCreateData
 import dev.crashteam.openapi.keanalytics.api.*
@@ -32,6 +30,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toMono
 import reactor.kotlin.core.publisher.toFlux
+import reactor.kotlin.core.publisher.toMono
 import java.math.RoundingMode
 import java.security.Principal
 import java.time.*
@@ -52,7 +51,8 @@ class MarketDbApiV2Controller(
     private val productServiceAnalytics: ProductServiceAnalytics,
     private val promoCodeService: PromoCodeService,
     private val conversionService: ConversionService,
-) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi, PromoCodeApi {
+    private val userSubscriptionService: UserSubscriptionService,
+) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi, PromoCodeApi, SubscriptionApi {
 
     override fun productOverallInfo(
         xRequestID: UUID,
@@ -500,6 +500,27 @@ class MarketDbApiV2Controller(
                 ResponseEntity.ok(codeCheckResult).toMono()
             }
         }
+    }
+
+    override fun giveawayDemoSubscription(
+        xRequestID: UUID,
+        giveawayUserDemoRequest: Mono<GiveawayUserDemoRequest>,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<Void>> {
+        return exchange.getPrincipal<Principal>().flatMap {
+            userRepository.findByUserId(it.name).flatMap { userDocument ->
+                if (userDocument.role != UserRole.ADMIN) {
+                    ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
+                } else {
+                    try {
+                        userSubscriptionService.giveawayDemoSubscription(it.name)
+                        ResponseEntity.ok().build<Void>().toMono()
+                    } catch (e: UserSubscriptionGiveawayException) {
+                        ResponseEntity.badRequest().build<Void>().toMono()
+                    }
+                }
+            }
+        }.doOnError { log.error(it) { "Failed to giveaway demo for user" } }
     }
 
     private fun checkRequestDaysPermission(
