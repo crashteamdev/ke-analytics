@@ -509,17 +509,19 @@ class MarketDbApiV2Controller(
     ): Mono<ResponseEntity<Void>> {
         return exchange.getPrincipal<Principal>().flatMap {
             userRepository.findByUserId(it.name).flatMap { userDocument ->
-                if (userDocument.role != UserRole.ADMIN) {
-                    ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
-                } else {
-                    try {
-                        userSubscriptionService.giveawayDemoSubscription(it.name).flatMap {
-                            ResponseEntity.ok().build<Void>().toMono()
-                        }.doOnError {
+                giveawayUserDemoRequest.flatMap { giveawayUserDemoRequest ->
+                    if (userDocument.role != UserRole.ADMIN) {
+                        ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
+                    } else {
+                        try {
+                            userSubscriptionService.giveawayDemoSubscription(giveawayUserDemoRequest.userId).flatMap {
+                                ResponseEntity.ok().build<Void>().toMono()
+                            }.doOnError {
+                                ResponseEntity.badRequest().build<Void>().toMono()
+                            }
+                        } catch (e: UserSubscriptionGiveawayException) {
                             ResponseEntity.badRequest().build<Void>().toMono()
                         }
-                    } catch (e: UserSubscriptionGiveawayException) {
-                        ResponseEntity.badRequest().build<Void>().toMono()
                     }
                 }
             }
