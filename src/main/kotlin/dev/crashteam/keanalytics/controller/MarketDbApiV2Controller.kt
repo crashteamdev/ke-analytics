@@ -512,9 +512,13 @@ class MarketDbApiV2Controller(
                 if (userDocument.role != UserRole.ADMIN) {
                     ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
                 } else {
-                    userSubscriptionService.giveawayDemoSubscription(it.name).flatMap {
-                        ResponseEntity.ok().build<Void>().toMono()
-                    }.doOnError {
+                    try {
+                        userSubscriptionService.giveawayDemoSubscription(it.name).flatMap {
+                            ResponseEntity.ok().build<Void>().toMono()
+                        }.doOnError {
+                            ResponseEntity.badRequest().build<Void>().toMono()
+                        }
+                    } catch (e: UserSubscriptionGiveawayException) {
                         ResponseEntity.badRequest().build<Void>().toMono()
                     }
                 }
