@@ -13,6 +13,7 @@ import dev.crashteam.openapi.keanalytics.api.*
 import dev.crashteam.openapi.keanalytics.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
@@ -30,7 +31,6 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.toMono
 import reactor.kotlin.core.publisher.toFlux
-import reactor.kotlin.core.publisher.toMono
 import java.math.RoundingMode
 import java.security.Principal
 import java.time.*
@@ -506,22 +506,20 @@ class MarketDbApiV2Controller(
         xRequestID: UUID,
         giveawayUserDemoRequest: Mono<GiveawayUserDemoRequest>,
         exchange: ServerWebExchange
-    ): Mono<ResponseEntity<Void>> {
-        return exchange.getPrincipal<Principal>().flatMap {
-            userRepository.findByUserId(it.name).flatMap { userDocument ->
-                if (userDocument.role != UserRole.ADMIN) {
-                    ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
-                } else {
-                    try {
-                        userSubscriptionService.giveawayDemoSubscription(it.name)
-                        ResponseEntity.ok().build<Void>().toMono()
-                    } catch (e: UserSubscriptionGiveawayException) {
-                        ResponseEntity.badRequest().build<Void>().toMono()
-                    }
-                }
+    ): Mono<ResponseEntity<Void>> = runBlocking {
+        val principal = exchange.getPrincipal<Principal>().awaitSingleOrNull()!!
+        val userDocument = userRepository.findByUserId(principal.name).awaitSingleOrNull()!!
+        if (userDocument.role != UserRole.ADMIN) {
+            ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
+        } else {
+            try {
+                userSubscriptionService.giveawayDemoSubscription(principal.name)
+                ResponseEntity.ok().build<Void>().toMono()
+            } catch (e: UserSubscriptionGiveawayException) {
+                ResponseEntity.badRequest().build<Void>().toMono()
             }
-        }.doOnError { log.error(it) { "Failed to giveaway demo for user" } }
-    }
+        }
+    }.doOnError { log.error(it) { "Failed to giveaway demo for user" } }
 
     private fun checkRequestDaysPermission(
         apiKey: String,
