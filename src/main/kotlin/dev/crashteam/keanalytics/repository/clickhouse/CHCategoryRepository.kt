@@ -3,7 +3,10 @@ package dev.crashteam.keanalytics.repository.clickhouse
 import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryAnalyticsMapper
 import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryDailyAnalyticsMapper
 import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryHierarchyMapper
-import dev.crashteam.keanalytics.repository.clickhouse.model.*
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryAnalytics
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryDailyAnalytics
+import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryHierarchy
+import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.PreparedStatementSetter
@@ -23,13 +26,13 @@ class CHCategoryRepository(
             SELECT sum(order_amount)                 AS order_amount,
                    sum(available_amount)             AS available_amount,
                    sum(revenue)                      AS revenue,
-                   quantile(median_price_with_sales) AS median_price,
-                   revenue / order_amount            AS avg_bill,
+                   if(order_amount > 0, quantile(median_price_with_sales), 0) AS median_price,
+                   if(order_amount > 0, revenue / order_amount, 0)            AS avg_bill,
                    product_seller_count_tuple.1      AS seller_count,
                    product_seller_count_tuple.2      AS product_count,
                    order_amount / product_count      AS order_per_product,
                    order_amount / seller_count       AS order_per_seller,
-                   revenue / product_count           AS revenue_per_product,
+                   if(order_amount > 0, revenue / product_count, 0)           AS revenue_per_product,
                    (SELECT uniq(seller_id), uniq(product_id)
                     FROM kazanex.ke_product_daily_sales
                     WHERE date BETWEEN ? AND ?
