@@ -27,19 +27,29 @@ class CategoryAnalyticsService(
         sortBy: SortBy? = null
     ): List<CategoryAnalyticsInfo>? {
         return coroutineScope {
-            log.debug { "Get root categories analytics (Async)." +
-                    "fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy" }
-            val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)
-            log.debug { "Root categories: $rootCategoryIds" }
-            val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
-                async {
-                    calculateCategoryAnalytics(rootCategoryId, fromTime, toTime)
+            try {
+                log.debug {
+                    "Get root categories analytics (Async)." +
+                            "fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy"
                 }
-            }?.awaitAll()
-            log.debug { "Finish get root categories analytics (Async)." +
-                    " fromTime=$fromTime; toTime=$toTime;" +
-                    " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}" }
-            categoryAnalyticsInfoList
+                val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)
+                log.debug { "Root categories: $rootCategoryIds" }
+                val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
+                    async {
+                        calculateCategoryAnalytics(rootCategoryId, fromTime, toTime)
+                    }
+                }?.awaitAll()
+                log.debug {
+                    "Finish get root categories analytics (Async)." +
+                            " fromTime=$fromTime; toTime=$toTime;" +
+                            " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
+                }
+                categoryAnalyticsInfoList
+            } catch (e: Exception) {
+                log.error(e) { "Exception during get root categories analytics." +
+                        " fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy" }
+                emptyList()
+            }
         }
     }
 
@@ -50,18 +60,29 @@ class CategoryAnalyticsService(
         sortBy: SortBy? = null
     ): List<CategoryAnalyticsInfo>? {
         return coroutineScope {
-            log.debug { "Get category analytics (Async)." +
-                    " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy" }
-            val childrenCategoryIds = chCategoryRepository.getDescendantCategories(categoryId, 1)
-            val categoryAnalyticsInfoList = childrenCategoryIds?.map { categoryId ->
-                async {
-                    calculateCategoryAnalytics(categoryId, fromTime, toTime)
+            try {
+                log.debug {
+                    "Get category analytics (Async)." +
+                            " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy"
                 }
-            }?.awaitAll()
-            log.debug { "Finish get category analytics (Async)." +
-                    " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime;" +
-                    " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}" }
-            categoryAnalyticsInfoList
+                val childrenCategoryIds = chCategoryRepository.getDescendantCategories(categoryId, 1)
+                log.debug { "Child categories: $childrenCategoryIds" }
+                val categoryAnalyticsInfoList = childrenCategoryIds?.map { categoryId ->
+                    async {
+                        calculateCategoryAnalytics(categoryId, fromTime, toTime)
+                    }
+                }?.awaitAll()
+                log.debug {
+                    "Finish get category analytics (Async)." +
+                            " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime;" +
+                            " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
+                }
+                categoryAnalyticsInfoList
+            } catch (e: Exception) {
+                log.error(e) { "Exception during get categories analytics." +
+                        " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy" }
+                emptyList()
+            }
         }
     }
 
