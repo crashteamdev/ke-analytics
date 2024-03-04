@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.PreparedStatementSetter
 import org.springframework.stereotype.Repository
+import java.math.BigInteger
 import java.sql.PreparedStatement
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -134,7 +135,7 @@ class CHCategoryRepository(
     fun getDescendantCategories(categoryId: Long, level: Short): List<Long>? {
         return jdbcTemplate.queryForObject(
             GET_DESCENDANT_CATEGORIES_SQL,
-            { rs, _ -> (rs.getArray("categories").array as LongArray).toList() },
+            { rs, _ -> (rs.getArray("categories").array as Array<BigInteger>).map { it.toLong() }.toList() },
             categoryId, level
         )
     }
