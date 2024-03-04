@@ -88,7 +88,7 @@ class CHCategoryRepository(
         const val GET_CATEGORY_HIERARCHY_SQL = """
             SELECT
                 result_tuple.1 AS name,
-                result_tuple.2 AS parentId,
+                result_tuple.2 AS parent_id,
                 dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 1) AS children_ids,
                 dictGet('kazanex.categories_hierarchical_dictionary', ('title', 'parentCategoryId'), ?) AS result_tuple
             FROM system.numbers

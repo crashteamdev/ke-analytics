@@ -8,9 +8,9 @@ import dev.crashteam.keanalytics.service.model.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
+import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -46,8 +46,10 @@ class CategoryAnalyticsService(
                 }
                 categoryAnalyticsInfoList
             } catch (e: Exception) {
-                log.error(e) { "Exception during get root categories analytics." +
-                        " fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy" }
+                log.error(e) {
+                    "Exception during get root categories analytics." +
+                            " fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy"
+                }
                 emptyList()
             }
         }
@@ -79,8 +81,10 @@ class CategoryAnalyticsService(
                 }
                 categoryAnalyticsInfoList
             } catch (e: Exception) {
-                log.error(e) { "Exception during get categories analytics." +
-                        " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy" }
+                log.error(e) {
+                    "Exception during get categories analytics." +
+                            " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy"
+                }
                 emptyList()
             }
         }
@@ -112,8 +116,10 @@ class CategoryAnalyticsService(
         val daysBetween = ChronoUnit.DAYS.between(fromTime, toTime)
         val prevFromTime = fromTime.minusDays(daysBetween)
         val prevToTime = fromTime
-        log.debug { "Calculate category analytics currentFromTime=$fromTime; currentToTime=$toTime;" +
-                " previousFromTime=$prevFromTime; previousToTime=$prevToTime" }
+        log.debug {
+            "Calculate category analytics currentFromTime=$fromTime; currentToTime=$toTime;" +
+                    " previousFromTime=$prevFromTime; previousToTime=$prevToTime"
+        }
         val categoryAnalytics = chCategoryRepository.getCategoryAnalytics(
             categoryId = categoryId,
             fromTime = fromTime,
@@ -127,8 +133,10 @@ class CategoryAnalyticsService(
             toTime = prevToTime,
             sort = sortBy
         )!!
-        log.debug { "Calculated category analytics for previous period: $prevCategoryAnalytics." +
-                " categoryId=$categoryId; fromTime=$prevFromTime; toTime=$prevToTime" }
+        log.debug {
+            "Calculated category analytics for previous period: $prevCategoryAnalytics." +
+                    " categoryId=$categoryId; fromTime=$prevFromTime; toTime=$prevToTime"
+        }
         val categoryHierarchy = chCategoryRepository.getCategoryHierarchy(categoryId)!!
         log.debug { "Category hierarchy: $categoryHierarchy. categoryId=$categoryId" }
         return CategoryAnalyticsInfo(
@@ -156,31 +164,31 @@ class CategoryAnalyticsService(
             revenuePerProductPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.revenuePerProduct,
                 categoryAnalytics.revenuePerProduct
-            ),
+            ).setScale(1),
             salesCountPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.orderAmount,
                 categoryAnalytics.orderAmount
-            ).toBigDecimal().setScale(1),
+            ).toBigDecimal().setScale(1, RoundingMode.DOWN),
             productCountPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.productCount,
                 categoryAnalytics.productCount
-            ).toBigDecimal().setScale(1),
+            ).toBigDecimal().setScale(1, RoundingMode.DOWN),
             sellerCountPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.sellerCount,
                 categoryAnalytics.sellerCount
-            ).toBigDecimal().setScale(1),
+            ).toBigDecimal().setScale(1, RoundingMode.DOWN),
             averageBillPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.avgBill,
                 categoryAnalytics.avgBill
-            ),
+            ).setScale(1),
             tstcPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.orderPerSeller,
                 categoryAnalytics.orderPerSeller
-            ),
+            ).setScale(1),
             tstsPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.orderPerProduct,
                 categoryAnalytics.orderPerProduct
-            )
+            ).setScale(1)
         )
     }
 
