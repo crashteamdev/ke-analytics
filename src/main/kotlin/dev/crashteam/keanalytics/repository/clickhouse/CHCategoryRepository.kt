@@ -79,7 +79,7 @@ class CHCategoryRepository(
         const val GET_DESCENDANT_CATEGORIES_SQL = """
             SELECT dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, ?) AS categories
             FROM system.numbers
-            LIMIT 1;
+            LIMIT 1
         """
         const val GET_CATEGORY_HIERARCHY_SQL = """
             SELECT
