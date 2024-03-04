@@ -7,44 +7,61 @@ import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
 import dev.crashteam.keanalytics.service.model.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+
+private val log = KotlinLogging.logger {}
 
 @Service
 class CategoryAnalyticsService(
     private val chCategoryRepository: CHCategoryRepository
 ) {
 
-    fun getRootCategoryAnalytics(
+    suspend fun getRootCategoryAnalytics(
         fromTime: LocalDate,
         toTime: LocalDate,
         sortBy: SortBy? = null
     ): List<CategoryAnalyticsInfo>? {
-        return runBlocking {
+        return coroutineScope {
+            log.debug { "Get root categories analytics (Async)." +
+                    "fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy" }
             val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)
-            return@runBlocking rootCategoryIds?.map { rootCategoryId ->
+            log.debug { "Root categories: $rootCategoryIds" }
+            val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
                 async {
                     calculateCategoryAnalytics(rootCategoryId, fromTime, toTime)
                 }
             }?.awaitAll()
+            log.debug { "Finish get root categories analytics (Async)." +
+                    " fromTime=$fromTime; toTime=$toTime;" +
+                    " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}" }
+            categoryAnalyticsInfoList
         }
     }
 
-    fun getCategoryAnalytics(
+    suspend fun getCategoryAnalytics(
         categoryId: Long,
         fromTime: LocalDate,
         toTime: LocalDate,
         sortBy: SortBy? = null
     ): List<CategoryAnalyticsInfo>? {
-        return runBlocking {
+        return coroutineScope {
+            log.debug { "Get category analytics (Async)." +
+                    " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy" }
             val childrenCategoryIds = chCategoryRepository.getDescendantCategories(categoryId, 1)
-            return@runBlocking childrenCategoryIds?.map { categoryId ->
+            val categoryAnalyticsInfoList = childrenCategoryIds?.map { categoryId ->
                 async {
                     calculateCategoryAnalytics(categoryId, fromTime, toTime)
                 }
             }?.awaitAll()
+            log.debug { "Finish get category analytics (Async)." +
+                    " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime;" +
+                    " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}" }
+            categoryAnalyticsInfoList
         }
     }
 
@@ -74,19 +91,25 @@ class CategoryAnalyticsService(
         val daysBetween = ChronoUnit.DAYS.between(fromTime, toTime)
         val prevFromTime = fromTime.minusDays(daysBetween)
         val prevToTime = fromTime
+        log.debug { "Calculate category analytics currentFromTime=$fromTime; currentToTime=$toTime;" +
+                " previousFromTime=$prevFromTime; previousToTime=$prevToTime" }
         val categoryAnalytics = chCategoryRepository.getCategoryAnalytics(
             categoryId = categoryId,
             fromTime = fromTime,
             toTime = toTime,
             sort = sortBy,
         )!!
+        log.debug { "Calculated category analytics: $categoryAnalytics. categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime" }
         val prevCategoryAnalytics = chCategoryRepository.getCategoryAnalytics(
             categoryId = categoryId,
             fromTime = prevFromTime,
             toTime = prevToTime,
             sort = sortBy
         )!!
+        log.debug { "Calculated category analytics for previous period: $prevCategoryAnalytics." +
+                " categoryId=$categoryId; fromTime=$prevFromTime; toTime=$prevToTime" }
         val categoryHierarchy = chCategoryRepository.getCategoryHierarchy(categoryId)!!
+        log.debug { "Category hierarchy: $categoryHierarchy. categoryId=$categoryId" }
         return CategoryAnalyticsInfo(
             category = Category(
                 categoryId = categoryId,

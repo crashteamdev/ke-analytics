@@ -9,6 +9,7 @@ import dev.crashteam.keanalytics.service.CategoryAnalyticsService
 import dev.crashteam.mp.base.Sort
 import dev.crashteam.mp.external.analytics.category.*
 import io.grpc.stub.StreamObserver
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import net.devh.boot.grpc.server.service.GrpcService
 import org.springframework.core.convert.ConversionService
@@ -28,32 +29,36 @@ class ExternalCategoryAnalyticsService(
         try {
             log.debug { "Request getCategoryAnalytics: $request" }
             val categoryAnalytics = if (request.hasCategoryId()) {
-                categoryAnalyticsService.getCategoryAnalytics(
-                    categoryId = request.categoryId,
-                    fromTime = request.dateRange.fromDate.toLocalDate(),
-                    toTime = request.dateRange.toDate.toLocalDate(),
-                    sortBy = SortBy(
-                        sortFields = request.sortList.map {
-                            SortField(
-                                fieldName = it.fieldName,
-                                order = it.order.toRepositoryDomain()
-                            )
-                        }
+                runBlocking {
+                    categoryAnalyticsService.getCategoryAnalytics(
+                        categoryId = request.categoryId,
+                        fromTime = request.dateRange.fromDate.toLocalDate(),
+                        toTime = request.dateRange.toDate.toLocalDate(),
+                        sortBy = SortBy(
+                            sortFields = request.sortList.map {
+                                SortField(
+                                    fieldName = it.fieldName,
+                                    order = it.order.toRepositoryDomain()
+                                )
+                            }
+                        )
                     )
-                )
+                }
             } else {
-                categoryAnalyticsService.getRootCategoryAnalytics(
-                    fromTime = request.dateRange.fromDate.toLocalDate(),
-                    toTime = request.dateRange.toDate.toLocalDate(),
-                    sortBy = SortBy(
-                        sortFields = request.sortList.map {
-                            SortField(
-                                fieldName = it.fieldName,
-                                order = it.order.toRepositoryDomain()
-                            )
-                        }
+                runBlocking {
+                    categoryAnalyticsService.getRootCategoryAnalytics(
+                        fromTime = request.dateRange.fromDate.toLocalDate(),
+                        toTime = request.dateRange.toDate.toLocalDate(),
+                        sortBy = SortBy(
+                            sortFields = request.sortList.map {
+                                SortField(
+                                    fieldName = it.fieldName,
+                                    order = it.order.toRepositoryDomain()
+                                )
+                            }
+                        )
                     )
-                )
+                }
             }
             log.debug { "Category analytics: $categoryAnalytics" }
             if (categoryAnalytics.isNullOrEmpty()) {
