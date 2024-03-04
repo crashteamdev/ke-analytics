@@ -160,11 +160,11 @@ class CategoryAnalyticsService(
             revenuePercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.revenue,
                 categoryAnalytics.revenue
-            ).setScale(1),
+            ).setScale(1, RoundingMode.DOWN),
             revenuePerProductPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.revenuePerProduct,
                 categoryAnalytics.revenuePerProduct
-            ).setScale(1),
+            ).setScale(1, RoundingMode.DOWN),
             salesCountPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.orderAmount,
                 categoryAnalytics.orderAmount
@@ -180,15 +180,15 @@ class CategoryAnalyticsService(
             averageBillPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.avgBill,
                 categoryAnalytics.avgBill
-            ).setScale(1),
+            ).setScale(1, RoundingMode.DOWN),
             tstcPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.orderPerSeller,
                 categoryAnalytics.orderPerSeller
-            ).setScale(1),
+            ).setScale(1, RoundingMode.DOWN),
             tstsPercentage = MathUtils.percentageDifference(
                 prevCategoryAnalytics.orderPerProduct,
                 categoryAnalytics.orderPerProduct
-            ).setScale(1)
+            ).setScale(1, RoundingMode.DOWN)
         )
     }
 
