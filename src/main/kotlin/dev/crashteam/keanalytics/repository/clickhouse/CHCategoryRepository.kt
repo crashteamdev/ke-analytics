@@ -48,7 +48,7 @@ class CHCategoryRepository(
                             sumMerge(orders)                       AS order_amount,
                             sumMerge(available_amount)             as available_amount,
                             quantileMerge(median_price_with_sales) AS median_price_with_sales,
-                            sumMerge(revenue)                      AS revenue,
+                            sumMerge(revenue)                      AS revenue
                      FROM kazanex.category_daily_stats p
                      WHERE date BETWEEN ? AND ?
                        AND category_id IN
