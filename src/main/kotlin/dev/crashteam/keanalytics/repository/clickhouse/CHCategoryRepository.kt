@@ -30,8 +30,8 @@ class CHCategoryRepository(
                    if(order_amount > 0, revenue / order_amount, 0)            AS avg_bill,
                    product_seller_count_tuple.1      AS seller_count,
                    product_seller_count_tuple.2      AS product_count,
-                   order_amount / product_count      AS order_per_product,
-                   order_amount / seller_count       AS order_per_seller,
+                   if(order_amount > 0, order_amount / product_count, 0)      AS order_per_product,
+                   if(order_amount > 0, order_amount / seller_count, 0)       AS order_per_seller,
                    if(order_amount > 0, revenue / product_count, 0)           AS revenue_per_product,
                    (SELECT uniq(seller_id), uniq(product_id)
                     FROM kazanex.ke_product_daily_sales
@@ -49,8 +49,6 @@ class CHCategoryRepository(
                             sumMerge(available_amount)             as available_amount,
                             quantileMerge(median_price_with_sales) AS median_price_with_sales,
                             sumMerge(revenue)                      AS revenue,
-                            uniqMerge(seller_count)                AS seller_count,
-                            uniqMerge(product_count)               AS product_count
                      FROM kazanex.category_daily_stats p
                      WHERE date BETWEEN ? AND ?
                        AND category_id IN

@@ -38,12 +38,7 @@ class CategoryAnalyticsService(
                 val (value, measureTimeMillis) = measureTimedValue {
                     val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
                         async {
-                            val (value, measureTimeMillis) = measureTimedValue {
-                                calculateCategoryAnalytics(rootCategoryId, fromTime, toTime)
-                            }
-                            log.debug { "Calculate category '$rootCategoryId' duration: $measureTimeMillis ms." }
-
-                            value
+                            calculateCategoryAnalytics(rootCategoryId, fromTime, toTime)
                         }
                     }?.awaitAll()
                     categoryAnalyticsInfoList
@@ -85,7 +80,7 @@ class CategoryAnalyticsService(
                     }
                 }?.awaitAll()
                 log.debug {
-                    "Finish get category analytics (Async)." +
+                    "Finish get category analytics." +
                             " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime;" +
                             " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
                 }
