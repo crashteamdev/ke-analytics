@@ -32,11 +32,11 @@ fun LocalDate.toProtobufDate(): Date {
 }
 
 fun BigDecimal.toMoney(): Money {
-    val natural = this.longValueExact()
+    val natural = this.toBigInteger().toLong()
     val fractional = this.remainder(BigDecimal.ONE).setScale(9, RoundingMode.DOWN)
     val nanos = fractional.movePointRight(9).intValueExact()
     return Money.newBuilder().apply {
-        this.currencyCode = "643"
+        this.currencyCode = "643" // TODO: refactor hardcoded currency code
         this.units = natural
         this.nanos = nanos
     }.build()
