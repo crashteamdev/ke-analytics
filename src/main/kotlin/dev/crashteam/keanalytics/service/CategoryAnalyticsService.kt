@@ -48,7 +48,7 @@ class CategoryAnalyticsService(
                     }?.awaitAll()
                     categoryAnalyticsInfoList
                 }
-                log.debug { "Overall Calculate category. duration (ASYNC): $measureTimeMillis ms." }
+                log.debug { "Overall Calculate category duration: $measureTimeMillis ms." }
                 log.debug {
                     "Finish get root categories analytics (Async)." +
                             " fromTime=$fromTime; toTime=$toTime;" +

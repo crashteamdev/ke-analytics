@@ -4,9 +4,7 @@ import dev.crashteam.keanalytics.extensions.toLocalDate
 import dev.crashteam.keanalytics.extensions.toRepositoryDomain
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortField
-import dev.crashteam.keanalytics.repository.clickhouse.model.SortOrder
 import dev.crashteam.keanalytics.service.CategoryAnalyticsService
-import dev.crashteam.mp.base.Sort
 import dev.crashteam.mp.external.analytics.category.*
 import io.grpc.stub.StreamObserver
 import kotlinx.coroutines.runBlocking
@@ -28,7 +26,7 @@ class ExternalCategoryAnalyticsService(
     ) {
         try {
             log.debug { "Request getCategoryAnalytics: $request" }
-            val categoryAnalytics = if (request.hasCategoryId()) {
+            val categoriesAnalytics = if (request.hasCategoryId()) {
                 runBlocking {
                     categoryAnalyticsService.getCategoryAnalytics(
                         categoryId = request.categoryId,
@@ -60,8 +58,8 @@ class ExternalCategoryAnalyticsService(
                     )
                 }
             }
-            log.debug { "Category analytics: $categoryAnalytics" }
-            if (categoryAnalytics.isNullOrEmpty()) {
+            if (categoriesAnalytics.isNullOrEmpty()) {
+                log.debug { "Failed get category analytics. Empty categoryAnalytics response" }
                 responseObserver.onNext(GetCategoryAnalyticsResponse.newBuilder().apply {
                     this.errorResponse = GetCategoryAnalyticsResponse.ErrorResponse.newBuilder().apply {
                         this.errorCode = GetCategoryAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_NOT_FOUND
@@ -70,14 +68,14 @@ class ExternalCategoryAnalyticsService(
             } else {
                 responseObserver.onNext(GetCategoryAnalyticsResponse.newBuilder().apply {
                     this.successResponse = GetCategoryAnalyticsResponse.SuccessResponse.newBuilder().apply {
-                        this.addAllCategories(categoryAnalytics.map { categoryAnalyticsInfo ->
+                        this.addAllCategories(categoriesAnalytics.map { categoryAnalyticsInfo ->
                             conversionService.convert(
                                 categoryAnalyticsInfo,
                                 dev.crashteam.mp.external.analytics.category.CategoryAnalyticsInfo::class.java
                             )
                         })
                     }.build()
-                    log.debug { "Response getCategoryAnalytics: ${this.successResponse}" }
+                    log.debug { "Response getCategoriesAnalytics: ${this.successResponse}" }
                 }.build())
             }
             responseObserver.onCompleted()
