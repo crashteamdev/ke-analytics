@@ -80,11 +80,13 @@ class ExternalCategoryAnalyticsService(
             }
             responseObserver.onCompleted()
         } catch (e: Exception) {
+            log.error(e) { "Exception during get category analytics" }
             responseObserver.onNext(GetCategoryAnalyticsResponse.newBuilder().apply {
                 this.errorResponse = GetCategoryAnalyticsResponse.ErrorResponse.newBuilder().apply {
                     this.errorCode = GetCategoryAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
                 }.build()
             }.build())
+            responseObserver.onCompleted()
         }
     }
 
@@ -110,11 +112,13 @@ class ExternalCategoryAnalyticsService(
             }.build())
             responseObserver.onCompleted()
         } catch (e: Exception) {
+            log.error(e) { "Exception during get category daily analytics" }
             responseObserver.onNext(GetCategoryDailyAnalyticsResponse.newBuilder().apply {
                 this.errorResponse = GetCategoryDailyAnalyticsResponse.ErrorResponse.newBuilder().apply {
                     this.errorCode = GetCategoryDailyAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
                 }.build()
             }.build())
+            responseObserver.onCompleted()
         }
     }
 }
