@@ -1,5 +1,8 @@
 package dev.crashteam.keanalytics.config
 
+import com.clickhouse.client.config.ClickHouseClientOption
+import com.clickhouse.client.config.ClickHouseDefaults
+import com.clickhouse.jdbc.ClickHouseDataSource
 import dev.crashteam.keanalytics.config.properties.ClickHouseDbProperties
 import liquibase.integration.spring.SpringLiquibase
 import org.springframework.beans.factory.annotation.Autowired
@@ -8,8 +11,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.JdbcTemplate
-import ru.yandex.clickhouse.ClickHouseDataSource
-import ru.yandex.clickhouse.settings.ClickHouseQueryParam
 import java.util.*
 import javax.sql.DataSource
 
@@ -19,13 +20,18 @@ class ClickhouseConfig {
     @Bean
     fun clickHouseDataSource(clickHouseDbProperties: ClickHouseDbProperties): ClickHouseDataSource {
         val info = Properties()
-        info.setProperty(ClickHouseQueryParam.USER.key, clickHouseDbProperties.user)
-        info.setProperty(ClickHouseQueryParam.PASSWORD.key, clickHouseDbProperties.password)
-        info.setProperty(ClickHouseQueryParam.COMPRESS.key, clickHouseDbProperties.compress.toString())
+        info.setProperty(ClickHouseDefaults.USER.key, clickHouseDbProperties.user)
+        info.setProperty(ClickHouseDefaults.PASSWORD.key, clickHouseDbProperties.password)
+        info.setProperty(ClickHouseClientOption.COMPRESS.key, clickHouseDbProperties.compress.toString())
         info.setProperty(
-            ClickHouseQueryParam.CONNECT_TIMEOUT.key,
+            ClickHouseClientOption.CONNECTION_TIMEOUT.key,
             clickHouseDbProperties.connectionTimeout.toString()
         )
+        info.setProperty(
+            ClickHouseClientOption.MAX_THREADS_PER_CLIENT.key,
+            "100"
+        )
+
         info.setProperty("ssl", clickHouseDbProperties.ssl.toString())
         return ClickHouseDataSource(clickHouseDbProperties.url, info)
     }

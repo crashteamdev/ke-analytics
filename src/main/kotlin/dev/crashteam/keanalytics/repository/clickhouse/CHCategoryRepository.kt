@@ -47,13 +47,10 @@ class CHCategoryRepository(
                             category_id,
                             sumMerge(orders)                       AS order_amount,
                             sumMerge(available_amount)             as available_amount,
-                            quantileMerge(median_price_all)        AS median_price_all,
                             quantileMerge(median_price_with_sales) AS median_price_with_sales,
                             sumMerge(revenue)                      AS revenue,
                             uniqMerge(seller_count)                AS seller_count,
-                            uniqMerge(product_count)               AS product_count,
-                            uniqExactIfMerge(seller_with_sales)    AS seller_with_sales,
-                            uniqExactIfMerge(product_with_sales)   AS product_with_sales
+                            uniqMerge(product_count)               AS product_count
                      FROM kazanex.category_daily_stats p
                      WHERE date BETWEEN ? AND ?
                        AND category_id IN
@@ -138,7 +135,7 @@ class CHCategoryRepository(
     fun getDescendantCategories(categoryId: Long, level: Short): List<Long>? {
         return jdbcTemplate.queryForObject(
             GET_DESCENDANT_CATEGORIES_SQL,
-            { rs, _ -> (rs.getArray("categories").array as Array<BigInteger>).map { it.toLong() }.toList() },
+            { rs, _ -> (rs.getArray("categories").array as LongArray).toList() },
             categoryId, level
         )
     }
