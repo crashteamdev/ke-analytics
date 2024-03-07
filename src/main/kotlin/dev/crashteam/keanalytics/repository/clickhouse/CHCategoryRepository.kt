@@ -33,15 +33,14 @@ class CHCategoryRepository(
                    if(order_amount > 0, order_amount / product_count, 0)      AS order_per_product,
                    if(order_amount > 0, order_amount / seller_count, 0)       AS order_per_seller,
                    if(order_amount > 0, revenue / product_count, 0)           AS revenue_per_product,
-                   (SELECT uniq(seller_id), uniq(product_id)
-                    FROM kazanex.ke_product_daily_sales
+                   (SELECT uniqMerge(seller_count), uniqMerge(product_count)
+                    FROM kazanex.category_daily_stats
                     WHERE date BETWEEN ? AND ?
-                          AND category_id IN
-                              if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
-                                 0,
-                                 dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
-                                 array(?))
-                    ) AS product_seller_count_tuple
+                      AND category_id IN
+                          if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
+                             0,
+                             dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
+                             array(?))) AS product_seller_count_tuple
             FROM (
                      SELECT date,
                             category_id,
@@ -49,7 +48,7 @@ class CHCategoryRepository(
                             sumMerge(available_amount)             as available_amount,
                             quantileMerge(median_price_with_sales) AS median_price_with_sales,
                             sumMerge(revenue)                      AS revenue
-                     FROM kazanex.category_daily_stats p
+                     FROM kazanex.category_daily_stats
                      WHERE date BETWEEN ? AND ?
                        AND category_id IN
                            if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
