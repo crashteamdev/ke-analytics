@@ -32,14 +32,16 @@ class ExternalCategoryAnalyticsService(
                         categoryId = request.categoryId,
                         fromTime = request.dateRange.fromDate.toLocalDate(),
                         toTime = request.dateRange.toDate.toLocalDate(),
-                        sortBy = SortBy(
-                            sortFields = request.sortList.map {
-                                SortField(
-                                    fieldName = it.fieldName,
-                                    order = it.order.toRepositoryDomain()
-                                )
-                            }
-                        )
+                        sortBy = if (request.sortList.isNotEmpty()) {
+                            SortBy(
+                                sortFields = request.sortList.map {
+                                    SortField(
+                                        fieldName = it.fieldName,
+                                        order = it.order.toRepositoryDomain()
+                                    )
+                                }
+                            )
+                        } else null
                     )
                 }
             } else {
@@ -47,14 +49,16 @@ class ExternalCategoryAnalyticsService(
                     categoryAnalyticsService.getRootCategoryAnalytics(
                         fromTime = request.dateRange.fromDate.toLocalDate(),
                         toTime = request.dateRange.toDate.toLocalDate(),
-                        sortBy = SortBy(
-                            sortFields = request.sortList.map {
-                                SortField(
-                                    fieldName = it.fieldName,
-                                    order = it.order.toRepositoryDomain()
-                                )
-                            }
-                        )
+                        sortBy = if (request.sortList.isNotEmpty()) {
+                            SortBy(
+                                sortFields = request.sortList.map {
+                                    SortField(
+                                        fieldName = it.fieldName,
+                                        order = it.order.toRepositoryDomain()
+                                    )
+                                }
+                            )
+                        } else null
                     )
                 }
             }
