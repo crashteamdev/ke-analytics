@@ -38,7 +38,7 @@ class CategoryAnalyticsService(
                 val (value, measureTimeMillis) = measureTimedValue {
                     val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
                         async {
-                            calculateCategoryAnalytics(rootCategoryId, fromTime, toTime)
+                            calculateCategoryAnalytics(rootCategoryId, fromTime, toTime, sortBy)
                         }
                     }?.awaitAll()
                     categoryAnalyticsInfoList
@@ -76,7 +76,7 @@ class CategoryAnalyticsService(
                 log.debug { "Child categories: $childrenCategoryIds" }
                 val categoryAnalyticsInfoList = childrenCategoryIds?.map { categoryId ->
                     async {
-                        calculateCategoryAnalytics(categoryId, fromTime, toTime)
+                        calculateCategoryAnalytics(categoryId, fromTime, toTime, sortBy)
                     }
                 }?.awaitAll()
                 log.debug {
