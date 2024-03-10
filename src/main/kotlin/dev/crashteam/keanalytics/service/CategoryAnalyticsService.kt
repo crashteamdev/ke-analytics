@@ -4,6 +4,7 @@ import dev.crashteam.keanalytics.math.MathUtils
 import dev.crashteam.keanalytics.repository.clickhouse.CHCategoryRepository
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryAnalytics
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
+import dev.crashteam.keanalytics.repository.clickhouse.model.SortOrder
 import dev.crashteam.keanalytics.service.model.*
 import kotlinx.coroutines.*
 import mu.KotlinLogging
@@ -11,8 +12,6 @@ import org.springframework.stereotype.Service
 import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
-import kotlin.time.ExperimentalTime
-import kotlin.time.measureTimedValue
 
 private val log = KotlinLogging.logger {}
 
@@ -21,7 +20,6 @@ class CategoryAnalyticsService(
     private val chCategoryRepository: CHCategoryRepository
 ) {
 
-    @OptIn(ExperimentalTime::class)
     suspend fun getRootCategoryAnalytics(
         fromTime: LocalDate,
         toTime: LocalDate,
@@ -35,21 +33,26 @@ class CategoryAnalyticsService(
                 }
                 val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)
                 log.debug { "Root categories: $rootCategoryIds" }
-                val (value, measureTimeMillis) = measureTimedValue {
-                    val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
-                        async {
-                            calculateCategoryAnalytics(rootCategoryId, fromTime, toTime, sortBy)
-                        }
-                    }?.awaitAll()
-                    categoryAnalyticsInfoList
-                }
-                log.debug { "Overall Calculate category duration: $measureTimeMillis ms." }
+                val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
+                    async {
+                        calculateCategoryAnalytics(rootCategoryId, fromTime, toTime)
+                    }
+                }?.awaitAll()
                 log.debug {
                     "Finish get root categories analytics (Async)." +
                             " fromTime=$fromTime; toTime=$toTime;" +
-                            " sortBy=$sortBy; resultSize=${value?.size}"
+                            " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
                 }
-                value
+                if (categoryAnalyticsInfoList == null) {
+                    return@withContext emptyList()
+                }
+                val categoryAnalyticsInfos = if (sortBy != null) {
+                    sortCategoryAnalytics(categoryAnalyticsInfoList, sortBy)
+                } else {
+                    categoryAnalyticsInfoList
+                }
+                println(categoryAnalyticsInfos)
+                categoryAnalyticsInfos
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get root categories analytics." +
@@ -76,7 +79,7 @@ class CategoryAnalyticsService(
                 log.debug { "Child categories: $childrenCategoryIds" }
                 val categoryAnalyticsInfoList = childrenCategoryIds?.map { categoryId ->
                     async {
-                        calculateCategoryAnalytics(categoryId, fromTime, toTime, sortBy)
+                        calculateCategoryAnalytics(categoryId, fromTime, toTime)
                     }
                 }?.awaitAll()
                 log.debug {
@@ -84,7 +87,14 @@ class CategoryAnalyticsService(
                             " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime;" +
                             " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
                 }
-                categoryAnalyticsInfoList
+                if (categoryAnalyticsInfoList == null) {
+                    return@withContext emptyList()
+                }
+                if (sortBy != null) {
+                    sortCategoryAnalytics(categoryAnalyticsInfoList, sortBy)
+                } else {
+                    categoryAnalyticsInfoList
+                }
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get categories analytics." +
@@ -116,7 +126,6 @@ class CategoryAnalyticsService(
         categoryId: Long,
         fromTime: LocalDate,
         toTime: LocalDate,
-        sortBy: SortBy? = null,
     ): CategoryAnalyticsInfo = coroutineScope {
         val daysBetween = ChronoUnit.DAYS.between(fromTime, toTime)
         val prevFromTime = fromTime.minusDays(daysBetween)
@@ -130,7 +139,6 @@ class CategoryAnalyticsService(
                 categoryId = categoryId,
                 fromTime = fromTime,
                 toTime = toTime,
-                sort = sortBy,
             )!!
         }
         val prevCategoryAnalyticsTask = async {
@@ -138,7 +146,6 @@ class CategoryAnalyticsService(
                 categoryId = categoryId,
                 fromTime = prevFromTime,
                 toTime = prevToTime,
-                sort = sortBy
             )!!
         }
         val categoryHierarchyTask = async {
@@ -159,6 +166,29 @@ class CategoryAnalyticsService(
             analyticsPrevPeriod = mapCategoryAnalytics(prevCategoryAnalytics),
             analyticsDifference = mapCategoryAnalyticsDifference(categoryAnalytics, prevCategoryAnalytics)
         )
+    }
+
+    private fun sortCategoryAnalytics(
+        categoryAnalytics: List<CategoryAnalyticsInfo>,
+        sortBy: SortBy
+    ): List<CategoryAnalyticsInfo> {
+        val comparators = sortBy.sortFields.map { sortField ->
+            when (sortField.fieldName) {
+                "order_amount" -> compareBy<CategoryAnalyticsInfo> { it.analytics.salesCount }
+                "revenue" -> compareBy { it.analytics.revenue }
+                "avg_bill" -> compareBy { it.analytics.averageBill }
+                "seller_count" -> compareBy { it.analytics.sellerCount }
+                "product_count" -> compareBy { it.analytics.productCount }
+                "order_per_product" -> compareBy { it.analytics.tsts }
+                "order_per_seller" -> compareBy { it.analytics.tstc }
+                "revenue_per_product" -> compareBy { it.analytics.revenuePerProduct }
+                else -> throw IllegalArgumentException("Unknown field name: ${sortField.fieldName}")
+            }.let { comparator ->
+                if (sortField.order == SortOrder.DESC) comparator.reversed() else comparator
+            }
+        }
+
+        return categoryAnalytics.sortedWith(comparators.reduce { acc, comparator -> acc.then(comparator) })
     }
 
     private fun mapCategoryAnalyticsDifference(

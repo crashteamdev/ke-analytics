@@ -56,7 +56,6 @@ class CHCategoryRepository(
                               dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
                               array(?))
                      GROUP BY category_id, date
-                     %s
                      )
         """
         const val CATEGORY_DAILY_ANALYTICS_SQL = """
@@ -94,24 +93,23 @@ class CHCategoryRepository(
         categoryId: Long,
         fromTime: LocalDate,
         toTime: LocalDate,
-        sort: SortBy? = null,
     ): ChCategoryAnalytics? {
-        val sql = if (sort != null) {
-            val sb = StringBuilder()
-            sb.append("ORDER BY ")
-            sort.sortFields.forEachIndexed { index, sortField ->
-                if (index >= sort.sortFields.size - 1) {
-                    sb.append("${sortField.fieldName} ${sortField.order.name}")
-                } else {
-                    sb.append("${sortField.fieldName} ${sortField.order.name},")
-                }
-            }
-            String.format(GET_CATEGORIES_ANALYTICS_SQL, sb.toString())
-        } else {
-            String.format(GET_CATEGORIES_ANALYTICS_SQL, "")
-        }
+//        val sql = if (sort != null) {
+//            val sb = StringBuilder()
+//            sb.append("ORDER BY ")
+//            sort.sortFields.forEachIndexed { index, sortField ->
+//                if (index >= sort.sortFields.size - 1) {
+//                    sb.append("${sortField.fieldName} ${sortField.order.name}")
+//                } else {
+//                    sb.append("${sortField.fieldName} ${sortField.order.name},")
+//                }
+//            }
+//            String.format(GET_CATEGORIES_ANALYTICS_SQL, sb.toString())
+//        } else {
+//            String.format(GET_CATEGORIES_ANALYTICS_SQL, "")
+//        }
         return jdbcTemplate.queryForObject(
-            sql,
+            GET_CATEGORIES_ANALYTICS_SQL,
             CategoryAnalyticsMapper(),
             fromTime, toTime, categoryId, categoryId, categoryId, fromTime, toTime, categoryId, categoryId, categoryId
         )
