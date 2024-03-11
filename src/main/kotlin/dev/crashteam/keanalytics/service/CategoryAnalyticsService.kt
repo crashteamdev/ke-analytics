@@ -113,10 +113,10 @@ class CategoryAnalyticsService(
             .map { categoryDailyAnalytics ->
                 CategoryDailyAnalytics(
                     date = categoryDailyAnalytics.date,
-                    revenue = categoryDailyAnalytics.revenue,
+                    revenue = categoryDailyAnalytics.revenue.setScale(2, RoundingMode.HALF_UP),
                     salesCount = categoryDailyAnalytics.orderAmount,
                     availableCount = categoryDailyAnalytics.availableAmount,
-                    averageBill = categoryDailyAnalytics.averageBill
+                    averageBill = categoryDailyAnalytics.averageBill.setScale(2, RoundingMode.HALF_UP)
                 )
             }
     }
