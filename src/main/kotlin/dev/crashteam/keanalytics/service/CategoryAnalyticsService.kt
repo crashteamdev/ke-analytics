@@ -232,14 +232,14 @@ class CategoryAnalyticsService(
 
     private fun mapCategoryAnalytics(categoryAnalytics: ChCategoryAnalytics): CategoryAnalytics {
         return CategoryAnalytics(
-            revenue = categoryAnalytics.revenue,
-            revenuePerProduct = categoryAnalytics.revenuePerProduct,
+            revenue = categoryAnalytics.revenue.setScale(2, RoundingMode.HALF_UP),
+            revenuePerProduct = categoryAnalytics.revenuePerProduct.setScale(2, RoundingMode.HALF_UP),
             salesCount = categoryAnalytics.orderAmount,
             productCount = categoryAnalytics.productCount,
             sellerCount = categoryAnalytics.sellerCount,
-            averageBill = categoryAnalytics.avgBill,
-            tsts = categoryAnalytics.orderPerProduct,
-            tstc = categoryAnalytics.orderPerSeller,
+            averageBill = categoryAnalytics.avgBill.setScale(2, RoundingMode.HALF_UP),
+            tsts = categoryAnalytics.orderPerProduct.setScale(2, RoundingMode.HALF_UP),
+            tstc = categoryAnalytics.orderPerSeller.setScale(2, RoundingMode.HALF_UP),
         )
     }
 
