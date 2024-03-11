@@ -25,14 +25,14 @@ class CHCategoryRepository(
         const val GET_CATEGORIES_ANALYTICS_SQL = """
             SELECT sum(order_amount)                 AS order_amount,
                    sum(available_amount)             AS available_amount,
-                   sum(revenue)                      AS revenue,
-                   if(order_amount > 0, quantile(median_price_with_sales), 0) AS median_price,
-                   if(order_amount > 0, revenue / order_amount, 0)            AS avg_bill,
+                   sum(revenue) / 100                AS revenue,
+                   if(order_amount > 0, quantile(median_price_with_sales) / 100, 0) AS median_price,
+                   if(order_amount > 0, (revenue / order_amount), 0)            AS avg_bill,
                    product_seller_count_tuple.1      AS seller_count,
                    product_seller_count_tuple.2      AS product_count,
                    if(order_amount > 0, order_amount / product_count, 0)      AS order_per_product,
                    if(order_amount > 0, order_amount / seller_count, 0)       AS order_per_seller,
-                   if(order_amount > 0, revenue / product_count, 0)           AS revenue_per_product,
+                   if(order_amount > 0, (revenue / product_count), 0)         AS revenue_per_product,
                    (SELECT uniqMerge(seller_count), uniqMerge(product_count)
                     FROM kazanex.category_daily_stats
                     WHERE date BETWEEN ? AND ?

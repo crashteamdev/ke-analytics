@@ -51,7 +51,6 @@ class CategoryAnalyticsService(
                 } else {
                     categoryAnalyticsInfoList
                 }
-                println(categoryAnalyticsInfos)
                 categoryAnalyticsInfos
             } catch (e: Exception) {
                 log.error(e) {
