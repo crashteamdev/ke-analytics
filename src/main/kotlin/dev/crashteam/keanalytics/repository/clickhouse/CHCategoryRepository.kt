@@ -3,10 +3,7 @@ package dev.crashteam.keanalytics.repository.clickhouse
 import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryAnalyticsMapper
 import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryDailyAnalyticsMapper
 import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryHierarchyMapper
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryAnalytics
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryDailyAnalytics
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryHierarchy
-import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
+import dev.crashteam.keanalytics.repository.clickhouse.model.*
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.PreparedStatementSetter
@@ -112,6 +109,29 @@ class CHCategoryRepository(
             GET_CATEGORIES_ANALYTICS_SQL,
             CategoryAnalyticsMapper(),
             fromTime, toTime, categoryId, categoryId, categoryId, fromTime, toTime, categoryId, categoryId, categoryId
+        )
+    }
+
+    fun getCategoryAnalyticsWithPrev(
+        categoryId: Long,
+        fromTime: LocalDate,
+        toTime: LocalDate,
+        prevFromTime: LocalDate,
+        prevToTime: LocalDate,
+    ): ChCategoryAnalyticsPair? {
+        val sqlSbBuilder = StringBuilder()
+        sqlSbBuilder.append(GET_CATEGORIES_ANALYTICS_SQL)
+        sqlSbBuilder.append("UNION ALL")
+        sqlSbBuilder.append(GET_CATEGORIES_ANALYTICS_SQL)
+        val chCategoryAnalytics = jdbcTemplate.query(
+            sqlSbBuilder.toString(),
+            CategoryAnalyticsMapper(),
+            fromTime, toTime, categoryId, categoryId, categoryId, fromTime, toTime, categoryId, categoryId, categoryId,
+            prevFromTime, prevToTime, categoryId, categoryId, categoryId, prevFromTime, prevToTime, categoryId, categoryId, categoryId
+        )
+        return ChCategoryAnalyticsPair(
+            chCategoryAnalytics = chCategoryAnalytics[0],
+            prevChCategoryAnalytics = chCategoryAnalytics[1]
         )
     }
 

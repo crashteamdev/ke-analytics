@@ -134,24 +134,18 @@ class CategoryAnalyticsService(
                     " previousFromTime=$prevFromTime; previousToTime=$prevToTime"
         }
         val categoryAnalyticsTask = async {
-            chCategoryRepository.getCategoryAnalytics(
+            chCategoryRepository.getCategoryAnalyticsWithPrev(
                 categoryId = categoryId,
                 fromTime = fromTime,
                 toTime = toTime,
-            )!!
-        }
-        val prevCategoryAnalyticsTask = async {
-            chCategoryRepository.getCategoryAnalytics(
-                categoryId = categoryId,
-                fromTime = prevFromTime,
-                toTime = prevToTime,
-            )!!
+                prevFromTime = prevFromTime,
+                prevToTime = prevToTime,
+            )
         }
         val categoryHierarchyTask = async {
             chCategoryRepository.getCategoryHierarchy(categoryId)!!
         }
         val categoryAnalytics = categoryAnalyticsTask.await()
-        val prevCategoryAnalytics = prevCategoryAnalyticsTask.await()
         val chCategoryHierarchy = categoryHierarchyTask.await()
 
         CategoryAnalyticsInfo(
@@ -161,9 +155,12 @@ class CategoryAnalyticsService(
                 parentId = chCategoryHierarchy.parentId,
                 childrenIds = chCategoryHierarchy.childrenIds
             ),
-            analytics = mapCategoryAnalytics(categoryAnalytics),
-            analyticsPrevPeriod = mapCategoryAnalytics(prevCategoryAnalytics),
-            analyticsDifference = mapCategoryAnalyticsDifference(categoryAnalytics, prevCategoryAnalytics)
+            analytics = mapCategoryAnalytics(categoryAnalytics?.chCategoryAnalytics!!),
+            analyticsPrevPeriod = mapCategoryAnalytics(categoryAnalytics.chCategoryAnalytics),
+            analyticsDifference = mapCategoryAnalyticsDifference(
+                categoryAnalytics.chCategoryAnalytics,
+                categoryAnalytics.prevChCategoryAnalytics
+            )
         )
     }
 
