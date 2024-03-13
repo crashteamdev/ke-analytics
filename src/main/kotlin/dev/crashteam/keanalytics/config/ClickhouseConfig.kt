@@ -27,10 +27,6 @@ class ClickhouseConfig {
             ClickHouseClientOption.CONNECTION_TIMEOUT.key,
             clickHouseDbProperties.connectionTimeout.toString()
         )
-        info.setProperty(
-            ClickHouseClientOption.MAX_THREADS_PER_CLIENT.key,
-            "100"
-        )
 
         info.setProperty("ssl", clickHouseDbProperties.ssl.toString())
         return ClickHouseDataSource(clickHouseDbProperties.url, info)
