@@ -1,5 +1,8 @@
 package dev.crashteam.keanalytics.security
 
+import dev.crashteam.keanalytics.domain.mongo.AdvancedSubscription
+import dev.crashteam.keanalytics.extensions.mapToSubscription
+import dev.crashteam.keanalytics.repository.mongo.UserRepository
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
@@ -18,7 +21,8 @@ import java.time.temporal.ChronoUnit
 private val log = KotlinLogging.logger {}
 
 class ApiUserLimiterFilter(
-    private val reactiveRedisTemplate: ReactiveRedisTemplate<String, ApiKeyUserSessionInfo>
+    private val reactiveRedisTemplate: ReactiveRedisTemplate<String, ApiKeyUserSessionInfo>,
+    private val userRepository: UserRepository,
 ) : WebFilter {
 
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
@@ -73,15 +77,24 @@ class ApiUserLimiterFilter(
             }
         }
         if (sessionInfo.accessFrom!!.size > 2) {
+            val userDocument = runBlocking {
+                userRepository.findByApiKey_HashKey(apiKey).awaitSingleOrNull()
+            }
+            val ipLimit = if (userDocument?.subscription?.subType?.mapToSubscription() == AdvancedSubscription) {
+                6
+            } else 3
+            val browserLimit = if (userDocument?.subscription?.subType?.mapToSubscription() == AdvancedSubscription) {
+                6
+            } else 3
             val groupByIpMap: Map<String, List<ApiKeyAccessFrom>> = sessionInfo.accessFrom!!.groupBy { it.ip!! }
-            if (groupByIpMap.size > 3) {
+            if (groupByIpMap.size > ipLimit) {
                 log.info { "User have too match sessions from different ip address. ips=${groupByIpMap.keys}" }
                 exchange.response.rawStatusCode = HttpStatus.TOO_MANY_REQUESTS.value()
                 return exchange.response.setComplete()
             }
             var tooMatchBrowserFromOneIp = false
             for (entry in groupByIpMap) {
-                if (entry.value.size > 3) {
+                if (entry.value.size > browserLimit) {
                     tooMatchBrowserFromOneIp = true
                 }
             }
