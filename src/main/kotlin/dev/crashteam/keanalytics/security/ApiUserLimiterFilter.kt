@@ -74,7 +74,7 @@ class ApiUserLimiterFilter(
         }
         if (sessionInfo.accessFrom!!.size > 2) {
             val groupByIpMap: Map<String, List<ApiKeyAccessFrom>> = sessionInfo.accessFrom!!.groupBy { it.ip!! }
-            if (groupByIpMap.size > 3) {
+            if (groupByIpMap.size > 6) {
                 log.info { "User have too match sessions from different ip address. ips=${groupByIpMap.keys}" }
                 exchange.response.rawStatusCode = HttpStatus.TOO_MANY_REQUESTS.value()
                 return exchange.response.setComplete()
