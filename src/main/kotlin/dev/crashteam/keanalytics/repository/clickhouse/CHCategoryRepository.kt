@@ -1,14 +1,12 @@
 package dev.crashteam.keanalytics.repository.clickhouse
 
-import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryAnalyticsMapper
-import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryDailyAnalyticsMapper
-import dev.crashteam.keanalytics.repository.clickhouse.mapper.CategoryHierarchyMapper
+import dev.crashteam.keanalytics.repository.clickhouse.mapper.*
 import dev.crashteam.keanalytics.repository.clickhouse.model.*
+import dev.crashteam.keanalytics.service.model.QueryPeriod
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.PreparedStatementSetter
 import org.springframework.stereotype.Repository
-import java.math.BigInteger
 import java.sql.PreparedStatement
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -84,6 +82,42 @@ class CHCategoryRepository(
             FROM system.numbers
             LIMIT 1
         """
+        const val GET_CATEGORY_PRODUCT_ANALYTICS_SQL = """
+            SELECT product_id,
+                   anyLast(title)                                                      AS title,
+                   maxMerge(max_total_order_amount) - minMerge(min_total_order_amount) AS order_amount,
+                   median_price * order_amount                                         AS revenue,
+                   quantileMerge(median_price)                                         AS median_price,
+                   anyLastMerge(available_amount)                                      AS available_amount,
+                   anyLastMerge(reviews_amount)                                        AS reviews_amount,
+                   anyLastMerge(photo_key)                                             AS photo_key,
+                   anyLastMerge(rating)                                                AS rating,
+                   count() OVER()                                                      AS total_row_count
+            FROM %s
+            WHERE category_id IN
+                  if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
+                     0,
+                     dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
+                     array(?))
+              AND (date = toDate(now()))
+            GROUP BY product_id
+        """
+        const val GET_PRODUCTS_ORDER_CHART_SQL = """
+            SELECT product_id,
+                   groupArray(order_amount) AS order_amount_chart
+            FROM (
+                     SELECT date,
+                            product_id,
+                            maxMerge(max_total_order_amount)                AS max_total_order_amount,
+                            minMerge(min_total_order_amount)                AS min_total_order_amount,
+                            max_total_order_amount - min_total_order_amount AS order_amount
+                     FROM kazanex.ke_product_daily_sales
+                     WHERE product_id IN (?)
+                       AND date BETWEEN '?' AND '?'
+                     GROUP BY product_id, date
+                  )
+            GROUP BY product_id;
+        """
     }
 
     fun getCategoryAnalytics(
@@ -91,20 +125,6 @@ class CHCategoryRepository(
         fromTime: LocalDate,
         toTime: LocalDate,
     ): ChCategoryAnalytics? {
-//        val sql = if (sort != null) {
-//            val sb = StringBuilder()
-//            sb.append("ORDER BY ")
-//            sort.sortFields.forEachIndexed { index, sortField ->
-//                if (index >= sort.sortFields.size - 1) {
-//                    sb.append("${sortField.fieldName} ${sortField.order.name}")
-//                } else {
-//                    sb.append("${sortField.fieldName} ${sortField.order.name},")
-//                }
-//            }
-//            String.format(GET_CATEGORIES_ANALYTICS_SQL, sb.toString())
-//        } else {
-//            String.format(GET_CATEGORIES_ANALYTICS_SQL, "")
-//        }
         return jdbcTemplate.queryForObject(
             GET_CATEGORIES_ANALYTICS_SQL,
             CategoryAnalyticsMapper(),
@@ -126,8 +146,26 @@ class CHCategoryRepository(
         val chCategoryAnalytics = jdbcTemplate.query(
             sqlSbBuilder.toString(),
             CategoryAnalyticsMapper(),
-            fromTime, toTime, categoryId, categoryId, categoryId, fromTime, toTime, categoryId, categoryId, categoryId,
-            prevFromTime, prevToTime, categoryId, categoryId, categoryId, prevFromTime, prevToTime, categoryId, categoryId, categoryId
+            fromTime,
+            toTime,
+            categoryId,
+            categoryId,
+            categoryId,
+            fromTime,
+            toTime,
+            categoryId,
+            categoryId,
+            categoryId,
+            prevFromTime,
+            prevToTime,
+            categoryId,
+            categoryId,
+            categoryId,
+            prevFromTime,
+            prevToTime,
+            categoryId,
+            categoryId,
+            categoryId
         )
         return ChCategoryAnalyticsPair(
             chCategoryAnalytics = chCategoryAnalytics[0],
@@ -160,6 +198,58 @@ class CHCategoryRepository(
             GET_CATEGORY_HIERARCHY_SQL,
             CategoryHierarchyMapper(),
             categoryId, categoryId
+        )
+    }
+
+    fun getCategoryProductsAnalytics(
+        categoryId: Long,
+        queryPeriod: QueryPeriod,
+        filter: FilterBy? = null,
+        sort: SortBy? = null,
+        page: PageLimitOffset,
+    ): List<ChCategoryProductsAnalytics> {
+        val queryTable = when (queryPeriod) {
+            QueryPeriod.WEEK -> "kazanex.category_product_weekly_stats"
+            QueryPeriod.TWO_WEEK -> "kazanex.category_product_two_week_stats"
+            QueryPeriod.MONTH -> "kazanex.category_product_monthly_stats"
+            QueryPeriod.TWO_MONTH -> "kazanex.category_product_two_month_stats"
+        }
+        val sqlStringBuilder = StringBuilder()
+        sqlStringBuilder.append(GET_CATEGORY_PRODUCT_ANALYTICS_SQL)
+        filter?.sqlFilterFields?.forEachIndexed { index, sqlFilterField ->
+            if (index == 0) {
+                sqlStringBuilder.append("HAVING ${sqlFilterField.sqlPredicate()} ")
+            }
+            sqlStringBuilder.append("AND ${sqlFilterField.sqlPredicate()} ")
+        }
+        if (sort != null) {
+            sqlStringBuilder.append("ORDER BY ")
+            sort.sortFields.forEachIndexed { index, sortField ->
+                if (index >= sort.sortFields.size - 1) {
+                    sqlStringBuilder.append("${sortField.fieldName} ${sortField.order.name}")
+                } else {
+                    sqlStringBuilder.append("${sortField.fieldName} ${sortField.order.name},")
+                }
+            }
+        }
+        sqlStringBuilder.append("LIMIT ${page.offset},${page.limit}")
+
+        return jdbcTemplate.query(
+            String.format(sqlStringBuilder.toString(), queryTable),
+            CategoryProductsAnalyticsMapper(),
+            categoryId, categoryId
+        )
+    }
+
+    fun getProductsOrderChart(
+        productIds: List<String>,
+        fromDate: LocalDate,
+        toDate: LocalDate
+    ): List<ChCategoryProductOrderChart> {
+        return jdbcTemplate.query(
+            GET_PRODUCTS_ORDER_CHART_SQL,
+            CategoryProductOrderChartRowMapper(),
+            productIds, fromDate, toDate
         )
     }
 

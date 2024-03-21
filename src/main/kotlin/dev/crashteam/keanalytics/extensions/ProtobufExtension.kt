@@ -1,8 +1,10 @@
 package dev.crashteam.keanalytics.extensions
 
 import com.google.protobuf.Timestamp
+import dev.crashteam.keanalytics.model.DatePeriodLocalDate
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortOrder
 import dev.crashteam.mp.base.Date
+import dev.crashteam.mp.base.DatePeriod
 import dev.crashteam.mp.base.Money
 import dev.crashteam.mp.base.Sort
 import java.math.BigDecimal
@@ -46,7 +48,28 @@ fun Sort.SortOrder.toRepositoryDomain(): SortOrder {
     return when (this) {
         dev.crashteam.mp.base.Sort.SortOrder.SORT_ORDER_UNSPECIFIED,
         dev.crashteam.mp.base.Sort.SortOrder.UNRECOGNIZED -> SortOrder.ASC
+
         dev.crashteam.mp.base.Sort.SortOrder.SORT_ORDER_ASC -> SortOrder.ASC
         dev.crashteam.mp.base.Sort.SortOrder.SORT_ORDER_DESC -> SortOrder.DESC
+    }
+}
+
+fun DatePeriod.toLocalDates(): DatePeriodLocalDate {
+    return when (this) {
+        DatePeriod.DATE_PERIOD_WEEK -> {
+            DatePeriodLocalDate(LocalDate.now().minusDays(7), LocalDate.now())
+        }
+        DatePeriod.DATE_PERIOD_TWO_WEEK -> {
+            DatePeriodLocalDate(LocalDate.now().minusDays(14), LocalDate.now())
+        }
+        DatePeriod.DATE_PERIOD_MONTH -> {
+            DatePeriodLocalDate(LocalDate.now().minusDays(30), LocalDate.now())
+        }
+        DatePeriod.DATE_PERIOD_TWO_MONTH -> {
+            DatePeriodLocalDate(LocalDate.now().minusDays(60), LocalDate.now())
+        }
+        DatePeriod.DATE_PERIOD_UNSPECIFIED, DatePeriod.UNRECOGNIZED -> {
+            DatePeriodLocalDate(LocalDate.now().minusDays(7), LocalDate.now())
+        }
     }
 }

@@ -1,13 +1,20 @@
 package dev.crashteam.keanalytics.service
 
+import dev.crashteam.keanalytics.extensions.toLocalDates
+import dev.crashteam.keanalytics.extensions.toMoney
+import dev.crashteam.keanalytics.extensions.toRepositoryDomain
 import dev.crashteam.keanalytics.math.MathUtils
 import dev.crashteam.keanalytics.repository.clickhouse.CHCategoryRepository
-import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryAnalytics
-import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
-import dev.crashteam.keanalytics.repository.clickhouse.model.SortOrder
+import dev.crashteam.keanalytics.repository.clickhouse.model.*
 import dev.crashteam.keanalytics.service.model.*
+import dev.crashteam.mp.base.DatePeriod
+import dev.crashteam.mp.base.Filter
+import dev.crashteam.mp.base.LimitOffsetPagination
+import dev.crashteam.mp.base.Sort
+import dev.crashteam.mp.external.analytics.category.ProductAnalytics
 import kotlinx.coroutines.*
 import mu.KotlinLogging
+import org.springframework.core.convert.ConversionService
 import org.springframework.stereotype.Service
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -17,7 +24,8 @@ private val log = KotlinLogging.logger {}
 
 @Service
 class CategoryAnalyticsService(
-    private val chCategoryRepository: CHCategoryRepository
+    private val chCategoryRepository: CHCategoryRepository,
+    private val conversionService: ConversionService,
 ) {
 
     suspend fun getRootCategoryAnalytics(
@@ -119,6 +127,60 @@ class CategoryAnalyticsService(
                     averageBill = categoryDailyAnalytics.averageBill.setScale(2, RoundingMode.HALF_UP)
                 )
             }
+    }
+
+    fun getCategoryProductsAnalytics(
+        categoryId: Long,
+        datePeriod: DatePeriod,
+        filter: List<Filter>? = null,
+        sort: List<Sort>? = null,
+        page: LimitOffsetPagination
+    ): List<ProductAnalytics> {
+        val filterSql = filter?.let {
+            FilterBy(
+                sqlFilterFields = filter.map {
+                    conversionService.convert(it, SqlFilterField::class.java)!!
+                }
+            )
+        }
+        val categoryProductsAnalytics = chCategoryRepository.getCategoryProductsAnalytics(
+            categoryId = categoryId,
+            queryPeriod = conversionService.convert(datePeriod, QueryPeriod::class.java)!!,
+            filter = filterSql,
+            sort = sort?.let {
+                SortBy(
+                    sortFields = sort.map {
+                        SortField(
+                            fieldName = it.fieldName,
+                            order = it.order.toRepositoryDomain()
+                        )
+                    }
+                )
+            },
+            page = PageLimitOffset(
+                limit = page.limit.toInt(),
+                offset = page.offset.toInt()
+            )
+        )
+        val productIds = categoryProductsAnalytics.map { it.productId }.distinct()
+        val periodLocalDate = datePeriod.toLocalDates()
+        val productsOrderChart =
+            chCategoryRepository.getProductsOrderChart(productIds, periodLocalDate.fromDate, periodLocalDate.toDate)
+                .associate { it.productId to it.orderChart }
+        return categoryProductsAnalytics.map {
+            ProductAnalytics.newBuilder().apply {
+                this.productId = it.productId
+                this.name = it.title
+                this.revenue = it.revenue.toMoney()
+                this.price = it.medianPrice.toMoney()
+                this.salesCount = it.orderAmount
+                this.rating = it.rating.setScale(1, RoundingMode.HALF_UP).toDouble()
+                this.reviewsCount = it.reviewsAmount
+                this.availableCount = it.availableAmount
+                this.photoKey = it.photoKey
+                this.addAllSalesChart(productsOrderChart[it.productId])
+            }.build()
+        }
     }
 
     private suspend fun calculateCategoryAnalytics(

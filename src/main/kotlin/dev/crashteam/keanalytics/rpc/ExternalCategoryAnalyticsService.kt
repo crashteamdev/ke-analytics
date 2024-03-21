@@ -125,4 +125,44 @@ class ExternalCategoryAnalyticsService(
             responseObserver.onCompleted()
         }
     }
+
+    override fun getCategoryAnalyticsProducts(
+        request: GetCategoryAnalyticsProductsRequest,
+        responseObserver: StreamObserver<GetCategoryAnalyticsProductResponse>
+    ) {
+        try {
+            log.debug { "Request getCategoryAnalyticsProducts: $request" }
+            val productsAnalytics = categoryAnalyticsService.getCategoryProductsAnalytics(
+                categoryId = request.categoryId,
+                datePeriod = request.datePeriod,
+                filter = request.filterList,
+                sort = request.sortList,
+                page = request.pagination
+            )
+            responseObserver.onNext(GetCategoryAnalyticsProductResponse.newBuilder().apply {
+                this.successResponse = GetCategoryAnalyticsProductResponse.SuccessResponse.newBuilder().apply {
+                    this.categoryProductAnalytics = CategoryProductAnalytics.newBuilder().apply {
+                        this.addAllProductAnalytics(productsAnalytics)
+                    }.build()
+                }.build()
+                log.debug { "Response getCategoryAnalyticsProducts: ${this.successResponse}" }
+            }.build())
+            responseObserver.onCompleted()
+        } catch (e: Exception) {
+            log.error(e) { "Exception during get category products analytics" }
+            responseObserver.onNext(GetCategoryAnalyticsProductResponse.newBuilder().apply {
+                this.errorResponse = GetCategoryAnalyticsProductResponse.ErrorResponse.newBuilder().apply {
+                    this.errorCode = GetCategoryAnalyticsProductResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
+                }.build()
+            }.build())
+            responseObserver.onCompleted()
+        }
+    }
+
+    override fun getProductDailyAnalytics(
+        request: GetProductDailyAnalyticsRequest,
+        responseObserver: StreamObserver<GetProductDailyAnalyticsResponse>
+    ) {
+        super.getProductDailyAnalytics(request, responseObserver)
+    }
 }

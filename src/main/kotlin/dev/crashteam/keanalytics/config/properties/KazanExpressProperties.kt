@@ -16,7 +16,7 @@ data class KazanExpressProperties(
     @field:NotEmpty
     val productCronV2: String? = null,
     @field:NotEmpty
-    val paymentCron: String? = null,
+    val aggregateCron: String? = null,
     @field:NotEmpty
     val sellerCron: String? = null,
     @field:NotEmpty
