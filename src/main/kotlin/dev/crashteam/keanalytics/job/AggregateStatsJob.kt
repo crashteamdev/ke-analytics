@@ -63,7 +63,7 @@ class AggregateStatsJob : Job {
 
     companion object {
         private const val MAX_DATE_AGG_STATS_SQL = """
-            SELECT max(date) AS max_date FROM %;
+            SELECT max(date) AS max_date FROM %
         """
         private const val INSERT_AGG_STATS_SQL = """
             INSERT INTO %s

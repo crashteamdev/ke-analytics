@@ -99,7 +99,7 @@ class CHCategoryRepository(
                      0,
                      dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
                      array(?))
-              AND (date = toDate(now()))
+              AND (date = '?')
             GROUP BY product_id
         """
         const val GET_PRODUCTS_ORDER_CHART_SQL = """
@@ -214,6 +214,9 @@ class CHCategoryRepository(
             QueryPeriod.MONTH -> "kazanex.category_product_monthly_stats"
             QueryPeriod.TWO_MONTH -> "kazanex.category_product_two_month_stats"
         }
+        val aggTableDate = jdbcTemplate.queryForObject(
+            "SELECT max(date) AS max_date FROM %".format(queryTable),
+        ) { rs, _ -> rs.getDate("max_date") }
         val sqlStringBuilder = StringBuilder()
         sqlStringBuilder.append(GET_CATEGORY_PRODUCT_ANALYTICS_SQL)
         filter?.sqlFilterFields?.forEachIndexed { index, sqlFilterField ->
@@ -237,7 +240,7 @@ class CHCategoryRepository(
         return jdbcTemplate.query(
             String.format(sqlStringBuilder.toString(), queryTable),
             CategoryProductsAnalyticsMapper(),
-            categoryId, categoryId
+            categoryId, categoryId, categoryId, aggTableDate
         )
     }
 
