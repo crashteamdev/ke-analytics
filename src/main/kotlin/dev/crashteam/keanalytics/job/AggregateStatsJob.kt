@@ -63,7 +63,7 @@ class AggregateStatsJob : Job {
 
     companion object {
         private const val MAX_DATE_AGG_STATS_SQL = """
-            SELECT max(date) AS max_date FROM %
+            SELECT max(date) AS max_date FROM %s
         """
         private const val INSERT_AGG_STATS_SQL = """
             INSERT INTO %s
@@ -93,9 +93,9 @@ class AggregateStatsJob : Job {
                      FROM kazanex.product
                      WHERE %s
                      AND latest_category_id IN (
-                         if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', %, 0)) > 0,
-                            dictGetDescendants('kazanex.categories_hierarchical_dictionary', %, 0),
-                            array(%))
+                         if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', %s, 0)) > 0,
+                            dictGetDescendants('kazanex.categories_hierarchical_dictionary', %s, 0),
+                            array(%s))
                          )
                      )
             GROUP BY category_id, product_id, toStartOfDay(now()) as date
