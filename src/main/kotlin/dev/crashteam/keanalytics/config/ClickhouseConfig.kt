@@ -27,6 +27,10 @@ class ClickhouseConfig {
             ClickHouseClientOption.CONNECTION_TIMEOUT.key,
             clickHouseDbProperties.connectionTimeout.toString()
         )
+        info.setProperty(
+            ClickHouseClientOption.SOCKET_TIMEOUT.key,
+            clickHouseDbProperties.socketTimeout.toString()
+        )
 
         info.setProperty("ssl", clickHouseDbProperties.ssl.toString())
         return ClickHouseDataSource(clickHouseDbProperties.url, info)

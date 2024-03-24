@@ -119,7 +119,8 @@ clickhouse:
   url: "jdbc:clickhouse://${CLICKHOUSE_HOST:localhost}:${CLICKHOUSE_PORT:8443}/${CLICKHOUSE_DB:uzum}"
   user: "dbuser"
   password: ${CLICKHOUSE_PASSWORD:strongPasswd}
-  connection.timeout: 50000
+  connectionTimeout: 120000
+  socketTimeout: 100000
   compress: false
   ssl: false
   liquibase:
