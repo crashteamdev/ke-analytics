@@ -28,7 +28,7 @@ class AggregateStatsJob : Job {
 
             rootCategoryIds.forEach { rootCategoryId ->
                 val insertStatSql = buildInsertStatSql(rootCategoryId, statType)
-                log.info { "Execute insert aggregation stats. categoryId=$rootCategoryId" }
+                log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
                 jdbcTemplate.execute(insertStatSql)
             }
         }
