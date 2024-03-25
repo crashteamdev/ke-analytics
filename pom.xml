@@ -213,7 +213,7 @@
         <dependency>
             <groupId>dev.crashteam</groupId>
             <artifactId>analytics-proto</artifactId>
-            <version>0.0.8</version>
+            <version>0.0.9</version>
         </dependency>
 
         <!-- Test -->

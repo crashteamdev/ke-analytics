@@ -5,6 +5,7 @@ import dev.crashteam.keanalytics.extensions.toRepositoryDomain
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortField
 import dev.crashteam.keanalytics.service.CategoryAnalyticsService
+import dev.crashteam.keanalytics.service.ProductServiceAnalytics
 import dev.crashteam.mp.external.analytics.category.*
 import io.grpc.stub.StreamObserver
 import kotlinx.coroutines.runBlocking
@@ -17,6 +18,7 @@ private val log = KotlinLogging.logger {}
 @GrpcService
 class ExternalCategoryAnalyticsService(
     private val categoryAnalyticsService: CategoryAnalyticsService,
+    private val productServiceAnalytics: ProductServiceAnalytics,
     private val conversionService: ConversionService,
 ) : ExternalCategoryAnalyticsServiceGrpc.ExternalCategoryAnalyticsServiceImplBase() {
 
@@ -82,7 +84,6 @@ class ExternalCategoryAnalyticsService(
                     log.debug { "Response getCategoriesAnalytics: ${this.successResponse}" }
                 }.build())
             }
-            responseObserver.onCompleted()
         } catch (e: Exception) {
             log.error(e) { "Exception during get category analytics" }
             responseObserver.onNext(GetCategoryAnalyticsResponse.newBuilder().apply {
@@ -90,6 +91,7 @@ class ExternalCategoryAnalyticsService(
                     this.errorCode = GetCategoryAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
                 }.build()
             }.build())
+        } finally {
             responseObserver.onCompleted()
         }
     }
@@ -114,7 +116,6 @@ class ExternalCategoryAnalyticsService(
                 }.build()
                 log.debug { "Response getCategoryDailyAnalytics: ${this.successResponse}" }
             }.build())
-            responseObserver.onCompleted()
         } catch (e: Exception) {
             log.error(e) { "Exception during get category daily analytics" }
             responseObserver.onNext(GetCategoryDailyAnalyticsResponse.newBuilder().apply {
@@ -122,6 +123,7 @@ class ExternalCategoryAnalyticsService(
                     this.errorCode = GetCategoryDailyAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
                 }.build()
             }.build())
+        } finally {
             responseObserver.onCompleted()
         }
     }
@@ -147,7 +149,6 @@ class ExternalCategoryAnalyticsService(
                 }.build()
                 log.debug { "Response getCategoryAnalyticsProducts: ${this.successResponse}" }
             }.build())
-            responseObserver.onCompleted()
         } catch (e: Exception) {
             log.error(e) { "Exception during get category products analytics" }
             responseObserver.onNext(GetCategoryAnalyticsProductResponse.newBuilder().apply {
@@ -155,6 +156,7 @@ class ExternalCategoryAnalyticsService(
                     this.errorCode = GetCategoryAnalyticsProductResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
                 }.build()
             }.build())
+        } finally {
             responseObserver.onCompleted()
         }
     }
@@ -163,6 +165,37 @@ class ExternalCategoryAnalyticsService(
         request: GetProductDailyAnalyticsRequest,
         responseObserver: StreamObserver<GetProductDailyAnalyticsResponse>
     ) {
-        super.getProductDailyAnalytics(request, responseObserver)
+        try {
+            log.debug { "Request getProductDailyAnalytics: $request" }
+            val productDailyAnalytics = productServiceAnalytics.getProductDailyAnalytics(
+                request.productId.toString(),
+                request.dateRange.fromDate.toLocalDate(),
+                request.dateRange.toDate.toLocalDate()
+            )
+            if (productDailyAnalytics == null) {
+                responseObserver.onNext(GetProductDailyAnalyticsResponse.newBuilder().apply {
+                    this.errorResponse = GetProductDailyAnalyticsResponse.ErrorResponse.newBuilder().apply {
+                        this.errorCode = GetProductDailyAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_NOT_FOUND
+                    }.build()
+                }.build())
+            } else {
+                responseObserver.onNext(GetProductDailyAnalyticsResponse.newBuilder().apply {
+                    this.successResponse = GetProductDailyAnalyticsResponse.SuccessResponse.newBuilder().apply {
+                        this.productDailyAnalytics =
+                            conversionService.convert(productDailyAnalytics, ProductDailyAnalytics::class.java)
+                    }.build()
+                    log.debug { "Response getCategoryAnalyticsProducts: ${this.successResponse}" }
+                }.build())
+            }
+        } catch (e: Exception) {
+            log.error(e) { "Exception during get product daily analytics" }
+            responseObserver.onNext(GetProductDailyAnalyticsResponse.newBuilder().apply {
+                this.errorResponse = GetProductDailyAnalyticsResponse.ErrorResponse.newBuilder().apply {
+                    this.errorCode = GetProductDailyAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
+                }.build()
+            }.build())
+        } finally {
+            responseObserver.onCompleted()
+        }
     }
 }

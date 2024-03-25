@@ -256,6 +256,15 @@ class CHCategoryRepository(
         )
     }
 
+    fun getCategoryTitle(categoryId: Long): String? {
+        return jdbcTemplate.queryForObject(
+            "SELECT dictGet('kazanex.categories_hierarchical_dictionary', ('title'), ?) AS category_title\n" +
+                    "FROM system.numbers LIMIT 1",
+            { rs, _ -> rs.getString("category_title") },
+            categoryId,
+        )
+    }
+
     internal class CategoryAnalyticsStatementSetter(
         private val categoryId: Long,
         private val fromTime: LocalDateTime,

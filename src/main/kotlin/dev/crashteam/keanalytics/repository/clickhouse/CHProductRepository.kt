@@ -6,12 +6,14 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.BatchPreparedStatementSetter
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.PreparedStatementSetter
+import org.springframework.jdbc.core.queryForObject
 import org.springframework.stereotype.Repository
 import ru.yandex.clickhouse.ClickHouseArray
 import ru.yandex.clickhouse.domain.ClickHouseDataType
 import java.sql.PreparedStatement
 import java.sql.Types
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -353,6 +355,60 @@ class CHProductRepository(
         GROUP BY product_id
         LIMIT ? OFFSET ?
     """.trimIndent()
+    private val GET_PRODUCT_DAILY_ANALYTICS_SQL = """
+        SELECT product_id,
+               anyLast(title)                   AS title,
+               anyLast(category_id)             AS category_id,
+               anyLast(seller_link)             AS seller_link,
+               anyLast(seller_title)            AS seller_title,
+               anyLast(purchase_price)          AS price,
+               anyLast(full_price)              AS full_price,
+               anyLast(review_amount)           AS review_amount,
+               sum(revenue / 100)               AS revenue_sum,
+               anyLast(photo_key)               AS photo_key,
+               groupArray(purchase_price / 100) AS price_chart,
+               groupArray(revenue / 100)        AS revenue_chart,
+               groupArray(final_order_amount)   AS order_chart,
+               groupArray(available_amount)     AS available_chart,
+               (SELECT min(date) as first_discovered
+                FROM kazanex.ke_product_daily_sales
+                WHERE product_id = '?'
+                GROUP BY product_id)            AS first_discovered
+        FROM (
+                 SELECT date,
+                        product_id,
+                        anyLast(category_id)                                                                             AS category_id,
+                        anyLastMerge(title)                                                                              AS title,
+                        minMerge(min_total_order_amount)                                                                 AS total_orders_amount_min,
+                        maxMerge(max_total_order_amount)                                                                 AS total_orders_amount_max,
+                        minMerge(min_available_amount)                                                                   AS available_amount,
+                        total_orders_amount_max - total_orders_amount_min                                                AS daily_order_amount,
+                        lagInFrame(total_orders_amount_max)
+                                   over (partition by product_id order by date ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING) AS max_total_order_amount_delta,
+                        multiIf(total_orders_amount_min < max_total_order_amount_delta,
+                                daily_order_amount - (max_total_order_amount_delta - total_orders_amount_min),
+                                max_total_order_amount_delta - total_orders_amount_max >= 0,
+                                daily_order_amount + (max_total_order_amount_delta - total_orders_amount_max),
+                                max_total_order_amount_delta > 0 AND
+                                total_orders_amount_min > max_total_order_amount_delta,
+                                daily_order_amount + (total_orders_amount_min - max_total_order_amount_delta),
+                                daily_order_amount)                                                                      AS order_amount_with_gaps,
+                        if(order_amount_with_gaps < 0, 0, order_amount_with_gaps)                                        AS final_order_amount,
+                        quantileMerge(median_price)                                                                      AS purchase_price,
+                        quantileMerge(median_full_price)                                                                 AS full_price,
+                        maxMerge(seller_title)                                                                           AS seller_title,
+                        anyLast(seller_link)                                                                             AS seller_link,
+                        final_order_amount * purchase_price                                                              AS revenue,
+                        anyLastMerge(reviews_amount)                                                                     AS review_amount,
+                        anyLastMerge(photo_key)                                                                          AS photo_key
+                 FROM kazanex.ke_product_daily_sales
+                 WHERE product_id = '?'
+                   AND date BETWEEN '?' AND '?'
+                 GROUP BY product_id, date
+                 ORDER BY date
+                 )
+        GROUP BY product_id
+    """.trimIndent()
 
     fun getProductAdditionalInfo(
         productId: String,
@@ -466,6 +522,18 @@ class CHProductRepository(
             GET_CATEGORY_SALES_REPORT,
             ProductSalesReportMapper(),
             fromTime, toTime, categoryId, categoryId, categoryId, limit, offset
+        )
+    }
+
+    fun getProductDailyAnalytics(
+        productId: String,
+        fromDate: LocalDate,
+        toDate: LocalDate,
+    ): ChProductDailyAnalytics? {
+        return jdbcTemplate.queryForObject(
+            GET_PRODUCT_DAILY_ANALYTICS_SQL,
+            ProductDailyAnalyticsMapper(),
+            productId, productId, fromDate, toDate,
         )
     }
 
