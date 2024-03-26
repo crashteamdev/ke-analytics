@@ -532,7 +532,6 @@ class MarketDbApiController(
                 )
             }
         ))
-
     }
 
     private suspend fun checkRequestDaysPermission(

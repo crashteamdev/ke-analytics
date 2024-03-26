@@ -1,5 +1,7 @@
 package dev.crashteam.keanalytics.controller
 
+import dev.crashteam.keanalytics.controller.model.ProductPositionHistoryView
+import dev.crashteam.keanalytics.controller.model.ProductPositionView
 import dev.crashteam.keanalytics.domain.mongo.*
 import dev.crashteam.keanalytics.report.ReportFileService
 import dev.crashteam.keanalytics.report.ReportService
@@ -52,6 +54,7 @@ class MarketDbApiV2Controller(
     private val promoCodeService: PromoCodeService,
     private val conversionService: ConversionService,
     private val userSubscriptionService: UserSubscriptionService,
+    private val productService: ProductService,
 ) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi, PromoCodeApi, SubscriptionApi {
 
     override fun productOverallInfo(
@@ -526,6 +529,36 @@ class MarketDbApiV2Controller(
                 }
             }
         }.doOnError { log.error(it) { "Failed to giveaway demo for user" } }
+    }
+
+    override fun categoryProductPosition(
+        xRequestID: UUID,
+        X_API_KEY: String,
+        categoryId: Long,
+        productId: Long,
+        skuId: Long,
+        fromDate: LocalDate,
+        toDate: LocalDate,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<CategoryProductPosition200Response>> {
+        val productPositions = productService.getProductPositions(
+            categoryId,
+            productId,
+            skuId,
+            fromDate,
+            toDate
+        )
+        return ResponseEntity.ok(CategoryProductPosition200Response().apply {
+            this.categoryId = categoryId
+            this.productId = productId
+            this.skuId = skuId
+            this.positions = productPositions.map {
+                CategoryProductPosition().apply {
+                    this.date = it.date
+                    this.position = it.position.toInt()
+                }
+            }
+        }).toMono()
     }
 
     private fun checkRequestDaysPermission(
