@@ -448,6 +448,31 @@ class ProductService(
         return productPositionHistory
     }
 
+    fun getProductPositions(
+        categoryId: Long,
+        productId: Long,
+        skuId: Long,
+        fromDate: LocalDate,
+        toDate: LocalDate,
+    ): List<ChProductPositionHistory> {
+        log.info {
+            "Get product positions. categoryId=$categoryId; productId=$productId; skuId=$skuId;" +
+                    " fromDate=$fromDate; toDate=$toDate"
+        }
+        val productPositionHistory = chProductPositionRepository.getProductPositionHistory(
+            categoryId.toString(),
+            productId.toString(),
+            skuId.toString(),
+            fromDate.atStartOfDay(),
+            toDate.atStartOfDay()
+        )
+        if (productPositionHistory.isEmpty()) {
+            return emptyList()
+        }
+
+        return productPositionHistory
+    }
+
     private fun calculateAggregateProductHistory(
         productHistory: List<ProductHistorySkuAggregate>,
         fromTime: LocalDateTime,
