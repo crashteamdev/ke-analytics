@@ -26,6 +26,7 @@ class ProductDailyAnalyticsMapper : RowMapper<ChProductDailyAnalytics> {
             orderChart = (rs.getArray("order_chart").array as LongArray).toList(),
             availableChart = (rs.getArray("available_chart").array as LongArray).toList(),
             firstDiscovered = rs.getTimestamp("first_discovered").toLocalDateTime(),
+            rating = rs.getBigDecimal("rating")
         )
     }
 }

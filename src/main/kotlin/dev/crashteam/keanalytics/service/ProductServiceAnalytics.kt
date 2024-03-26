@@ -123,7 +123,8 @@ class ProductServiceAnalytics(
             revenueChart = productDailyAnalytics.revenueChart,
             orderChart = productDailyAnalytics.orderChart,
             availableChart = productDailyAnalytics.availableChart,
-            firstDiscovered = productDailyAnalytics.firstDiscovered
+            firstDiscovered = productDailyAnalytics.firstDiscovered,
+            rating = productDailyAnalytics.rating
         )
     }
 }

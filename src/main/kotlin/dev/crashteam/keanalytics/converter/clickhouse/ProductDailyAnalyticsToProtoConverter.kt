@@ -7,6 +7,7 @@ import dev.crashteam.mp.external.analytics.category.ProductCategory
 import dev.crashteam.mp.external.analytics.category.ProductSeller
 import org.springframework.core.convert.converter.Converter
 import org.springframework.stereotype.Component
+import java.math.RoundingMode
 
 @Component
 class ProductDailyAnalyticsToProtoConverter :
@@ -28,6 +29,7 @@ class ProductDailyAnalyticsToProtoConverter :
             this.revenue = source.revenue.toMoney()
             this.appearAt = source.firstDiscovered.toLocalDate().toProtobufDate()
             this.reviewsCount = source.reviewAmount
+            this.rating = source.rating.setScale(1, RoundingMode.HALF_UP).toDouble()
             this.addAllPriceChart(source.priceChart.map { it.toMoney() })
             this.addAllSalesChart(source.orderChart)
             this.addAllRevenueChart(source.revenueChart.map { it.toMoney() })

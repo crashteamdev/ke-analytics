@@ -366,6 +366,7 @@ class CHProductRepository(
                anyLast(review_amount)           AS review_amount,
                sum(revenue / 100)               AS revenue_sum,
                anyLast(photo_key)               AS photo_key,
+               anyLast(rating)                  AS rating,
                groupArray(purchase_price / 100) AS price_chart,
                groupArray(revenue / 100)        AS revenue_chart,
                groupArray(final_order_amount)   AS order_chart,
@@ -400,7 +401,8 @@ class CHProductRepository(
                         anyLast(seller_link)                                                                             AS seller_link,
                         final_order_amount * purchase_price                                                              AS revenue,
                         anyLastMerge(reviews_amount)                                                                     AS review_amount,
-                        anyLastMerge(photo_key)                                                                          AS photo_key
+                        anyLastMerge(photo_key)                                                                          AS photo_key,
+                        maxMerge(rating)                                                                                 AS rating
                  FROM kazanex.ke_product_daily_sales
                  WHERE product_id = '?'
                    AND date BETWEEN '?' AND '?'

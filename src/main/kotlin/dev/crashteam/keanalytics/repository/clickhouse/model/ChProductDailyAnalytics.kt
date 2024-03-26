@@ -19,4 +19,5 @@ data class ChProductDailyAnalytics(
     val orderChart: List<Long>,
     val availableChart: List<Long>,
     val firstDiscovered: LocalDateTime,
+    val rating: BigDecimal,
 )

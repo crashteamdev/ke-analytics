@@ -18,6 +18,7 @@ data class ProductDailyAnalytics(
     val orderChart: List<Long>,
     val availableChart: List<Long>,
     val firstDiscovered: LocalDateTime,
+    val rating: BigDecimal,
 )
 
 data class ProductDailyAnalyticsCategory(
