@@ -221,7 +221,7 @@ class CHCategoryRepository(
             "SELECT max(date) AS max_date FROM %s".format(queryTable),
         ) { rs, _ -> rs.getDate("max_date") }
         val sqlStringBuilder = StringBuilder()
-        sqlStringBuilder.append(GET_CATEGORY_PRODUCT_ANALYTICS_SQL)
+        sqlStringBuilder.append(GET_CATEGORY_PRODUCT_ANALYTICS_SQL.format(queryTable))
         filter?.sqlFilterFields?.forEachIndexed { index, sqlFilterField ->
             if (index == 0) {
                 sqlStringBuilder.append("HAVING ${sqlFilterField.sqlPredicate()} ")
