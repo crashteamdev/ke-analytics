@@ -215,7 +215,7 @@ class CHCategoryRepository(
             QueryPeriod.TWO_MONTH -> "kazanex.category_product_two_month_stats"
         }
         val aggTableDate = jdbcTemplate.queryForObject(
-            "SELECT max(date) AS max_date FROM %".format(queryTable),
+            "SELECT max(date) AS max_date FROM %s".format(queryTable),
         ) { rs, _ -> rs.getDate("max_date") }
         val sqlStringBuilder = StringBuilder()
         sqlStringBuilder.append(GET_CATEGORY_PRODUCT_ANALYTICS_SQL)
