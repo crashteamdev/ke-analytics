@@ -244,7 +244,7 @@ class CHCategoryRepository(
         log.debug { "Get category products analytics SQL: $sqlStringBuilder" }
 
         return jdbcTemplate.query(
-            sqlStringBuilder,
+            sqlStringBuilder.toString(),
             CategoryProductsAnalyticsMapper(),
             categoryId, categoryId, categoryId, aggTableDate
         )
