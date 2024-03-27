@@ -260,15 +260,21 @@ class ExternalCategoryAnalyticsService(
         fromDate: LocalDate,
         toDate: LocalDate
     ): Boolean {
+        log.debug { "Check request days permission. userId=$userId; fromDate=$fromDate; toDate=$toDate" }
         val daysCount = ChronoUnit.DAYS.between(fromDate, toDate)
         if (daysCount <= 0) return true
         val user = userRepository.findByUserId(userId).block()
             ?: throw IllegalStateException("User not found")
         val checkDaysAccess = userRestrictionService.checkDaysAccess(user, daysCount.toInt())
         if (checkDaysAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
+            log.debug { "Check request days, permission prohibited. userId=$userId; requestDaysCount=$daysCount" }
             return false
         }
         val checkDaysHistoryAccess = userRestrictionService.checkDaysHistoryAccess(user, fromDate.atStartOfDay())
-        return checkDaysHistoryAccess != UserRestrictionService.RestrictionResult.PROHIBIT
+        if (checkDaysHistoryAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
+            log.debug { "Check request days history, permission prohibited. userId=$userId; requestDaysCount=$daysCount" }
+            return false
+        }
+        return true
     }
 }
