@@ -116,7 +116,7 @@ class CHCategoryRepository(
                             max_total_order_amount - min_total_order_amount AS order_amount
                      FROM kazanex.ke_product_daily_sales
                      WHERE product_id IN (?)
-                       AND date BETWEEN '?' AND '?'
+                       AND date BETWEEN ? AND ?
                      GROUP BY product_id, date
                   )
             GROUP BY product_id;
@@ -244,7 +244,7 @@ class CHCategoryRepository(
         log.debug { "Get category products analytics SQL: $sqlStringBuilder" }
 
         return jdbcTemplate.query(
-            String.format(sqlStringBuilder.toString(), queryTable),
+            sqlStringBuilder,
             CategoryProductsAnalyticsMapper(),
             categoryId, categoryId, categoryId, aggTableDate
         )
