@@ -145,7 +145,7 @@ class CategoryAnalyticsService(
         }
         val categoryProductsAnalytics = chCategoryRepository.getCategoryProductsAnalytics(
             categoryId = categoryId,
-            queryPeriod = conversionService.convert(datePeriod, QueryPeriod::class.java)!!,
+            queryPeriod = mapDatePeriodToQueryPeriod(datePeriod),
             filter = filterSql,
             sort = sort?.let {
                 SortBy(
@@ -302,4 +302,13 @@ class CategoryAnalyticsService(
         )
     }
 
+    private fun mapDatePeriodToQueryPeriod(source: DatePeriod): QueryPeriod {
+        return when (source) {
+            DatePeriod.DATE_PERIOD_UNSPECIFIED, DatePeriod.UNRECOGNIZED -> QueryPeriod.MONTH
+            DatePeriod.DATE_PERIOD_WEEK -> QueryPeriod.WEEK
+            DatePeriod.DATE_PERIOD_TWO_WEEK -> QueryPeriod.TWO_WEEK
+            DatePeriod.DATE_PERIOD_MONTH -> QueryPeriod.MONTH
+            DatePeriod.DATE_PERIOD_TWO_MONTH -> QueryPeriod.TWO_MONTH
+        }
+    }
 }
