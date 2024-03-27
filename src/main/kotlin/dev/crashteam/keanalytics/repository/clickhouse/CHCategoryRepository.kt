@@ -228,7 +228,7 @@ class CHCategoryRepository(
             }
             sqlStringBuilder.append("AND ${sqlFilterField.sqlPredicate()} ")
         }
-        if (sort != null) {
+        if (sort != null && sort.sortFields.isNotEmpty()) {
             sqlStringBuilder.append("ORDER BY ")
             sort.sortFields.forEachIndexed { index, sortField ->
                 if (index >= sort.sortFields.size - 1) {
