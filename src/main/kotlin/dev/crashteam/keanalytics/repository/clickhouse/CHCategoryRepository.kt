@@ -99,7 +99,7 @@ class CHCategoryRepository(
                      0,
                      dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
                      array(?))
-              AND (date = '?')
+              AND (date = ?)
             GROUP BY product_id
         """
         const val GET_PRODUCTS_ORDER_CHART_SQL = """
