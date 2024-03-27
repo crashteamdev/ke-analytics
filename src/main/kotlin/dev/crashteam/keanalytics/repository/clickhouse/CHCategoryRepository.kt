@@ -219,7 +219,8 @@ class CHCategoryRepository(
         }
         val aggTableDate = jdbcTemplate.queryForObject(
             "SELECT max(date) AS max_date FROM %s".format(queryTable),
-        ) { rs, _ -> rs.getDate("max_date") }
+        ) { rs, _ -> rs.getDate("max_date") }?.toLocalDate()
+            ?: throw IllegalStateException("Can't determine date for table query")
         val sqlStringBuilder = StringBuilder()
         sqlStringBuilder.append(GET_CATEGORY_PRODUCT_ANALYTICS_SQL.format(queryTable))
         filter?.sqlFilterFields?.forEachIndexed { index, sqlFilterField ->
