@@ -3,6 +3,7 @@ package dev.crashteam.keanalytics.repository.clickhouse
 import dev.crashteam.keanalytics.repository.clickhouse.mapper.*
 import dev.crashteam.keanalytics.repository.clickhouse.model.*
 import dev.crashteam.keanalytics.service.model.QueryPeriod
+import mu.KotlinLogging
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.PreparedStatementSetter
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Repository
 import java.sql.PreparedStatement
 import java.time.LocalDate
 import java.time.LocalDateTime
+
+private val log = KotlinLogging.logger {}
 
 @Repository
 class CHCategoryRepository(
@@ -236,6 +239,8 @@ class CHCategoryRepository(
             }
         }
         sqlStringBuilder.append("LIMIT ${page.offset},${page.limit}")
+
+        log.debug { "Get category products analytics SQL: $sqlStringBuilder" }
 
         return jdbcTemplate.query(
             String.format(sqlStringBuilder.toString(), queryTable),
