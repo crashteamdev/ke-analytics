@@ -258,7 +258,7 @@ class CHCategoryRepository(
         return jdbcTemplate.query(
             GET_PRODUCTS_ORDER_CHART_SQL,
             CategoryProductOrderChartRowMapper(),
-            productIds, fromDate, toDate
+            productIds.toTypedArray(), fromDate, toDate
         )
     }
 
