@@ -19,7 +19,7 @@ class ProductDailyAnalyticsMapper : RowMapper<ChProductDailyAnalytics> {
             price = rs.getBigDecimal("price"),
             fullPrice = rs.getBigDecimal("full_price"),
             reviewAmount = rs.getLong("review_amount"),
-            revenue = rs.getBigDecimal("revenue"),
+            revenue = rs.getBigDecimal("revenue_sum"),
             photoKey = rs.getString("photo_key"),
             priceChart = (rs.getArray("price_chart").array as DoubleArray).map { BigDecimal.valueOf(it) }.toList(),
             revenueChart = (rs.getArray("revenue_chart").array as DoubleArray).map { BigDecimal.valueOf(it) }.toList(),
