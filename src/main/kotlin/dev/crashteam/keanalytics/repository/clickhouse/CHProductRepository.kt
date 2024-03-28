@@ -373,7 +373,7 @@ class CHProductRepository(
                groupArray(available_amount)     AS available_chart,
                (SELECT min(date) as first_discovered
                 FROM kazanex.ke_product_daily_sales
-                WHERE product_id = '?'
+                WHERE product_id = ?
                 GROUP BY product_id)            AS first_discovered
         FROM (
                  SELECT date,
@@ -404,8 +404,8 @@ class CHProductRepository(
                         anyLastMerge(photo_key)                                                                          AS photo_key,
                         maxMerge(rating)                                                                                 AS rating
                  FROM kazanex.ke_product_daily_sales
-                 WHERE product_id = '?'
-                   AND date BETWEEN '?' AND '?'
+                 WHERE product_id = ?
+                   AND date BETWEEN ? AND ?
                  GROUP BY product_id, date
                  ORDER BY date
                  )

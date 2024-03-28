@@ -118,6 +118,7 @@ class CHCategoryRepository(
                      WHERE product_id IN (?)
                        AND date BETWEEN ? AND ?
                      GROUP BY product_id, date
+                     ORDER BY date WITH FILL FROM ? TO ?
                   )
             GROUP BY product_id;
         """
@@ -258,7 +259,7 @@ class CHCategoryRepository(
         return jdbcTemplate.query(
             GET_PRODUCTS_ORDER_CHART_SQL,
             CategoryProductOrderChartRowMapper(),
-            productIds.toTypedArray(), fromDate, toDate
+            productIds.toTypedArray(), fromDate, toDate, fromDate, toDate
         )
     }
 
