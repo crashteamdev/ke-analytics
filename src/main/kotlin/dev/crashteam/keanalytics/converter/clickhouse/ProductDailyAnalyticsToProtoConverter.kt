@@ -1,17 +1,17 @@
 package dev.crashteam.keanalytics.converter.clickhouse
 
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.extensions.toMoney
 import dev.crashteam.keanalytics.extensions.toProtobufDate
 import dev.crashteam.keanalytics.service.model.ProductDailyAnalytics
 import dev.crashteam.mp.external.analytics.category.ProductCategory
 import dev.crashteam.mp.external.analytics.category.ProductSeller
-import org.springframework.core.convert.converter.Converter
 import org.springframework.stereotype.Component
 import java.math.RoundingMode
 
 @Component
 class ProductDailyAnalyticsToProtoConverter :
-    Converter<ProductDailyAnalytics, dev.crashteam.mp.external.analytics.category.ProductDailyAnalytics> {
+    DataConverter<ProductDailyAnalytics, dev.crashteam.mp.external.analytics.category.ProductDailyAnalytics> {
     override fun convert(source: ProductDailyAnalytics): dev.crashteam.mp.external.analytics.category.ProductDailyAnalytics? {
         return dev.crashteam.mp.external.analytics.category.ProductDailyAnalytics.newBuilder().apply {
             this.productId = source.productId

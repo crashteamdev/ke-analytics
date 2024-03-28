@@ -1,5 +1,6 @@
 package dev.crashteam.keanalytics.converter.clickhouse
 
+import dev.crashteam.keanalytics.converter.DataConverter
 import dev.crashteam.keanalytics.extensions.toLocalDate
 import dev.crashteam.keanalytics.repository.clickhouse.model.BetweenSqlFilter
 import dev.crashteam.keanalytics.repository.clickhouse.model.EqualsSqlFilter
@@ -10,7 +11,7 @@ import org.springframework.core.convert.converter.Converter
 import org.springframework.stereotype.Component
 
 @Component
-class ProtoFilterToChSqlConverter : Converter<Filter, SqlFilterField> {
+class ProtoFilterToChSqlConverter : DataConverter<Filter, SqlFilterField> {
 
     override fun convert(source: Filter): SqlFilterField? {
         return if (source.condition.hasEqualsTextCondition()) {
