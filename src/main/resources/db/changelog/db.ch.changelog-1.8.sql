@@ -9,5 +9,3 @@ SELECT
     *
 ORDER BY category_id, date
     );
-
-ALTER TABLE kazanex.ke_product_daily_sales MATERIALIZE PROJECTION IF NOT EXISTS product_daily_sales_category_id_projection;
