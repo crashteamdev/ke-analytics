@@ -247,6 +247,44 @@ class ExternalCategoryAnalyticsService(
         }
     }
 
+    override fun getCategory(
+        request: GetCategoryDataRequest,
+        responseObserver: StreamObserver<GetCategoryDataResponse>
+    ) {
+        try {
+            log.debug { "Request getCategory: $request" }
+            val categoryInfo = categoryAnalyticsService.getCategoryInfo(request.categoryId.toLong())
+            if (categoryInfo == null) {
+                responseObserver.onNext(GetCategoryDataResponse.newBuilder().apply {
+                    this.errorResponse = GetCategoryDataResponse.ErrorResponse.newBuilder().apply {
+                        this.errorCode = GetCategoryDataResponse.ErrorResponse.ErrorCode.ERROR_CODE_NOT_FOUND
+                    }.build()
+                }.build())
+            } else {
+                responseObserver.onNext(GetCategoryDataResponse.newBuilder().apply {
+                    this.successResponse = GetCategoryDataResponse.SuccessResponse.newBuilder().apply {
+                        this.categoryInfo = CategoryInfo.newBuilder().apply {
+                            this.categoryId = request.categoryId
+                            this.name = categoryInfo.name
+                            this.parentId = categoryInfo.parentId.toString()
+                            this.addAllChildrenIds(categoryInfo.childrenIds.map { it.toString() })
+                        }.build()
+                    }.build()
+                    log.debug { "Response getCategory: ${this.successResponse}" }
+                }.build())
+            }
+        } catch (e: Exception) {
+            log.error(e) { "Exception during get category info" }
+            responseObserver.onNext(GetCategoryDataResponse.newBuilder().apply {
+                this.errorResponse = GetCategoryDataResponse.ErrorResponse.newBuilder().apply {
+                    this.errorCode = GetCategoryDataResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
+                }.build()
+            }.build())
+        } finally {
+            responseObserver.onCompleted()
+        }
+    }
+
     private fun checkRequestDaysPermission(
         userId: String,
         datePeriod: DatePeriod,

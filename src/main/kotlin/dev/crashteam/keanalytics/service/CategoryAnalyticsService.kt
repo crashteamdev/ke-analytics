@@ -183,6 +183,10 @@ class CategoryAnalyticsService(
         }
     }
 
+    fun getCategoryInfo(categoryId: Long): ChCategoryHierarchy? {
+        return chCategoryRepository.getCategoryHierarchy(categoryId)
+    }
+
     private suspend fun calculateCategoryAnalytics(
         categoryId: Long,
         fromTime: LocalDate,
