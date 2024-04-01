@@ -92,7 +92,7 @@ class AggregateStatsJob : Job {
             StatType.MONTH -> "toDate(now()) - 60"
             StatType.TWO_MONTH -> "toDate(now()) - 120"
         }
-        val tableName = getTableNameForAggCategoryProductsStatsByStatType(statType)
+        val tableName = getTableNameForAggCategoryStatsByStatType(statType)
         return INSERT_AGG_CATEGORY_STATS_SQL.format(
             tableName,
             sqlPeriod, "toDate(now())",
