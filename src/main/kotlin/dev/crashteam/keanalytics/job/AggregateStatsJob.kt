@@ -194,7 +194,6 @@ class AggregateStatsJob : Job {
                    c.order_per_product,
                    c.order_per_seller,
                    c.revenue_per_product,
-                   p.category_id,
                    p.prev_order_amount,
                    p.prev_available_amount,
                    p.prev_revenue,
