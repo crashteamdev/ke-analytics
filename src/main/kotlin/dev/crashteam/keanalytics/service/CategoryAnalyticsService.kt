@@ -40,7 +40,15 @@ class CategoryAnalyticsService(
                 log.debug { "Root categories: $rootCategoryIds" }
                 val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
                     async {
-                        calculateCategoryAnalytics(rootCategoryId, datePeriod)
+                        try {
+                            calculateCategoryAnalytics(rootCategoryId, datePeriod)
+                        } catch (e: Exception) {
+                            log.error {
+                                "Exception during calculate category analytics." +
+                                        " categoryId=$rootCategoryId; period=$datePeriod"
+                            }
+                            throw e
+                        }
                     }
                 }?.awaitAll()
                 log.debug {
@@ -82,7 +90,15 @@ class CategoryAnalyticsService(
                 log.debug { "Child categories: $childrenCategoryIds" }
                 val categoryAnalyticsInfoList = childrenCategoryIds?.map { categoryId ->
                     async {
-                        calculateCategoryAnalytics(categoryId, datePeriod)
+                        try {
+                            calculateCategoryAnalytics(categoryId, datePeriod)
+                        } catch (e: Exception) {
+                            log.error {
+                                "Exception during calculate category analytics." +
+                                        " categoryId=$categoryId; period=$datePeriod"
+                            }
+                            throw e
+                        }
                     }
                 }?.awaitAll()
                 log.debug {
