@@ -101,7 +101,8 @@ class AggregateStatsJob : Job {
             categoryId, categoryId, categoryId,
             prevSqlPeriod, sqlPeriod,
             categoryId, categoryId, categoryId,
-            prevSqlPeriod, sqlPeriod
+            prevSqlPeriod, sqlPeriod,
+            categoryId, categoryId, categoryId,
         )
     }
 
