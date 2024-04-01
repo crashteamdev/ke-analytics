@@ -38,9 +38,7 @@ class ExternalCategoryAnalyticsService(
     ) {
         try {
             log.debug { "Request getCategoryAnalytics: $request" }
-            val fromDate = request.dateRange.fromDate.toLocalDate()
-            val toDate = request.dateRange.toDate.toLocalDate()
-            if (!checkRequestDaysPermission(request.userId, fromDate, toDate)) {
+            if (!checkRequestDaysPermission(request.userId, request.datePeriod)) {
                 responseObserver.onNext(GetCategoryAnalyticsResponse.newBuilder().apply {
                     this.errorResponse = GetCategoryAnalyticsResponse.ErrorResponse.newBuilder().apply {
                         this.errorCode = GetCategoryAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_FORBIDDEN
@@ -52,8 +50,7 @@ class ExternalCategoryAnalyticsService(
                 runBlocking {
                     categoryAnalyticsService.getCategoryAnalytics(
                         categoryId = request.categoryId,
-                        fromTime = fromDate,
-                        toTime = toDate,
+                        datePeriod = request.datePeriod,
                         sortBy = if (request.sortList.isNotEmpty()) {
                             SortBy(
                                 sortFields = request.sortList.map {
@@ -69,8 +66,7 @@ class ExternalCategoryAnalyticsService(
             } else {
                 runBlocking {
                     categoryAnalyticsService.getRootCategoryAnalytics(
-                        fromTime = request.dateRange.fromDate.toLocalDate(),
-                        toTime = request.dateRange.toDate.toLocalDate(),
+                        datePeriod = request.datePeriod,
                         sortBy = if (request.sortList.isNotEmpty()) {
                             SortBy(
                                 sortFields = request.sortList.map {

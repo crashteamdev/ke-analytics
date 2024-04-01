@@ -18,7 +18,6 @@ import org.springframework.core.convert.ConversionService
 import org.springframework.stereotype.Service
 import java.math.RoundingMode
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 private val log = KotlinLogging.logger {}
 
@@ -29,26 +28,24 @@ class CategoryAnalyticsService(
 ) {
 
     suspend fun getRootCategoryAnalytics(
-        fromTime: LocalDate,
-        toTime: LocalDate,
+        datePeriod: DatePeriod,
         sortBy: SortBy? = null
     ): List<CategoryAnalyticsInfo>? {
         return withContext(Dispatchers.IO) {
             try {
                 log.debug {
-                    "Get root categories analytics (Async)." +
-                            "fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy"
+                    "Get root categories analytics (Async). queryPeriod=$datePeriod; sortBy=$sortBy"
                 }
                 val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)
                 log.debug { "Root categories: $rootCategoryIds" }
                 val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
                     async {
-                        calculateCategoryAnalytics(rootCategoryId, fromTime, toTime)
+                        calculateCategoryAnalytics(rootCategoryId, datePeriod)
                     }
                 }?.awaitAll()
                 log.debug {
                     "Finish get root categories analytics (Async)." +
-                            " fromTime=$fromTime; toTime=$toTime;" +
+                            " queryPeriod=$datePeriod" +
                             " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
                 }
                 if (categoryAnalyticsInfoList == null) {
@@ -63,7 +60,7 @@ class CategoryAnalyticsService(
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get root categories analytics." +
-                            " fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy"
+                            " queryPeriod=$datePeriod; sortBy=$sortBy"
                 }
                 emptyList()
             }
@@ -72,26 +69,25 @@ class CategoryAnalyticsService(
 
     suspend fun getCategoryAnalytics(
         categoryId: Long,
-        fromTime: LocalDate,
-        toTime: LocalDate,
+        datePeriod: DatePeriod,
         sortBy: SortBy? = null
     ): List<CategoryAnalyticsInfo>? {
         return withContext(Dispatchers.IO) {
             try {
                 log.debug {
                     "Get category analytics (Async)." +
-                            " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy"
+                            " categoryId=$categoryId; queryPeriod=$datePeriod; sortBy=$sortBy"
                 }
                 val childrenCategoryIds = chCategoryRepository.getDescendantCategories(categoryId, 1)
                 log.debug { "Child categories: $childrenCategoryIds" }
                 val categoryAnalyticsInfoList = childrenCategoryIds?.map { categoryId ->
                     async {
-                        calculateCategoryAnalytics(categoryId, fromTime, toTime)
+                        calculateCategoryAnalytics(categoryId, datePeriod)
                     }
                 }?.awaitAll()
                 log.debug {
                     "Finish get category analytics." +
-                            " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime;" +
+                            " categoryId=$categoryId; queryPeriod=$datePeriod" +
                             " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
                 }
                 if (categoryAnalyticsInfoList == null) {
@@ -105,7 +101,7 @@ class CategoryAnalyticsService(
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get categories analytics." +
-                            " categoryId=$categoryId; fromTime=$fromTime; toTime=$toTime; sortBy=$sortBy"
+                            " categoryId=$categoryId; queryPeriod=$datePeriod; sortBy=$sortBy"
                 }
                 emptyList()
             }
@@ -189,29 +185,19 @@ class CategoryAnalyticsService(
 
     private suspend fun calculateCategoryAnalytics(
         categoryId: Long,
-        fromTime: LocalDate,
-        toTime: LocalDate,
+        datePeriod: DatePeriod,
     ): CategoryAnalyticsInfo = coroutineScope {
-        val daysBetween = ChronoUnit.DAYS.between(fromTime, toTime)
-        val prevFromTime = fromTime.minusDays(daysBetween)
-        val prevToTime = fromTime
-        log.debug {
-            "Calculate category analytics currentFromTime=$fromTime; currentToTime=$toTime;" +
-                    " previousFromTime=$prevFromTime; previousToTime=$prevToTime"
-        }
+        log.debug { "Calculate category analytics queryPeriod=$datePeriod" }
         val categoryAnalyticsTask = async {
             chCategoryRepository.getCategoryAnalyticsWithPrev(
                 categoryId = categoryId,
-                fromTime = fromTime,
-                toTime = toTime,
-                prevFromTime = prevFromTime,
-                prevToTime = prevToTime,
+                queryPeriod = mapDatePeriodToQueryPeriod(datePeriod)
             )
         }
         val categoryHierarchyTask = async {
             chCategoryRepository.getCategoryHierarchy(categoryId)!!
         }
-        val categoryAnalytics = categoryAnalyticsTask.await()
+        val chCategoryAnalyticsPair = categoryAnalyticsTask.await()!!
         val chCategoryHierarchy = categoryHierarchyTask.await()
 
         CategoryAnalyticsInfo(
@@ -221,12 +207,9 @@ class CategoryAnalyticsService(
                 parentId = chCategoryHierarchy.parentId,
                 childrenIds = chCategoryHierarchy.childrenIds
             ),
-            analytics = mapCategoryAnalytics(categoryAnalytics?.chCategoryAnalytics!!),
-            analyticsPrevPeriod = mapCategoryAnalytics(categoryAnalytics.chCategoryAnalytics),
-            analyticsDifference = mapCategoryAnalyticsDifference(
-                categoryAnalytics.chCategoryAnalytics,
-                categoryAnalytics.prevChCategoryAnalytics
-            )
+            analytics = mapCategoryAnalytics(chCategoryAnalyticsPair),
+            analyticsPrevPeriod = mapPrevCategoryAnalytics(chCategoryAnalyticsPair),
+            analyticsDifference = mapCategoryAnalyticsDifference(chCategoryAnalyticsPair),
         )
     }
 
@@ -254,46 +237,45 @@ class CategoryAnalyticsService(
     }
 
     private fun mapCategoryAnalyticsDifference(
-        categoryAnalytics: ChCategoryAnalytics,
-        prevCategoryAnalytics: ChCategoryAnalytics
+        categoryAnalytics: ChCategoryAnalyticsPair
     ): CategoryAnalyticsDifference {
         return CategoryAnalyticsDifference(
             revenuePercentage = MathUtils.percentageDifference(
-                prevCategoryAnalytics.revenue,
+                categoryAnalytics.prevRevenue,
                 categoryAnalytics.revenue
             ).setScale(1, RoundingMode.DOWN),
             revenuePerProductPercentage = MathUtils.percentageDifference(
-                prevCategoryAnalytics.revenuePerProduct,
+                categoryAnalytics.prevRevenuePerProduct,
                 categoryAnalytics.revenuePerProduct
             ).setScale(1, RoundingMode.DOWN),
             salesCountPercentage = MathUtils.percentageDifference(
-                prevCategoryAnalytics.orderAmount,
+                categoryAnalytics.prevOrderAmount,
                 categoryAnalytics.orderAmount
             ).toBigDecimal().setScale(1, RoundingMode.DOWN),
             productCountPercentage = MathUtils.percentageDifference(
-                prevCategoryAnalytics.productCount,
+                categoryAnalytics.prevProductCount,
                 categoryAnalytics.productCount
             ).toBigDecimal().setScale(1, RoundingMode.DOWN),
             sellerCountPercentage = MathUtils.percentageDifference(
-                prevCategoryAnalytics.sellerCount,
+                categoryAnalytics.prevSellerCount,
                 categoryAnalytics.sellerCount
             ).toBigDecimal().setScale(1, RoundingMode.DOWN),
             averageBillPercentage = MathUtils.percentageDifference(
-                prevCategoryAnalytics.avgBill,
+                categoryAnalytics.prevAvgBill,
                 categoryAnalytics.avgBill
             ).setScale(1, RoundingMode.DOWN),
             tstcPercentage = MathUtils.percentageDifference(
-                prevCategoryAnalytics.orderPerSeller,
+                categoryAnalytics.prevOrderPerSeller,
                 categoryAnalytics.orderPerSeller
             ).setScale(1, RoundingMode.DOWN),
             tstsPercentage = MathUtils.percentageDifference(
-                prevCategoryAnalytics.orderPerProduct,
+                categoryAnalytics.prevOrderPerProduct,
                 categoryAnalytics.orderPerProduct
             ).setScale(1, RoundingMode.DOWN)
         )
     }
 
-    private fun mapCategoryAnalytics(categoryAnalytics: ChCategoryAnalytics): CategoryAnalytics {
+    private fun mapCategoryAnalytics(categoryAnalytics: ChCategoryAnalyticsPair): CategoryAnalytics {
         return CategoryAnalytics(
             revenue = categoryAnalytics.revenue.setScale(2, RoundingMode.HALF_UP),
             revenuePerProduct = categoryAnalytics.revenuePerProduct.setScale(2, RoundingMode.HALF_UP),
@@ -303,6 +285,19 @@ class CategoryAnalyticsService(
             averageBill = categoryAnalytics.avgBill.setScale(2, RoundingMode.HALF_UP),
             tsts = categoryAnalytics.orderPerProduct.setScale(2, RoundingMode.HALF_UP),
             tstc = categoryAnalytics.orderPerSeller.setScale(2, RoundingMode.HALF_UP),
+        )
+    }
+
+    private fun mapPrevCategoryAnalytics(categoryAnalytics: ChCategoryAnalyticsPair): CategoryAnalytics {
+        return CategoryAnalytics(
+            revenue = categoryAnalytics.prevRevenue.setScale(2, RoundingMode.HALF_UP),
+            revenuePerProduct = categoryAnalytics.prevRevenuePerProduct.setScale(2, RoundingMode.HALF_UP),
+            salesCount = categoryAnalytics.prevOrderAmount,
+            productCount = categoryAnalytics.prevProductCount,
+            sellerCount = categoryAnalytics.prevSellerCount,
+            averageBill = categoryAnalytics.prevAvgBill.setScale(2, RoundingMode.HALF_UP),
+            tsts = categoryAnalytics.prevOrderPerProduct.setScale(2, RoundingMode.HALF_UP),
+            tstc = categoryAnalytics.prevOrderPerSeller.setScale(2, RoundingMode.HALF_UP),
         )
     }
 

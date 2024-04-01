@@ -6,7 +6,6 @@ data class ChCategoryAnalytics(
     val orderAmount: Long,
     val availableAmount: Long,
     val revenue: BigDecimal,
-    val medianPrice: BigDecimal,
     val avgBill: BigDecimal,
     val sellerCount: Long,
     val productCount: Long,

@@ -20,6 +20,47 @@ class CHCategoryRepository(
 ) {
 
     private companion object {
+        const val GET_CATEGORIES_ANALYTICS_WITH_PREV_SQL = """
+            SELECT sum(order_amount)                                               AS order_amount,
+                   sum(available_amount)                                           AS available_amount,
+                   sum(revenue)                                                    AS revenue,
+                   if(order_amount > 0, revenue / order_amount, 0)                 AS avg_bill,
+                   product_seller_count_tuple.1                                    AS seller_count,
+                   product_seller_count_tuple.2                                    AS product_count,
+                   order_amount / product_count                                    AS order_per_product,
+                   order_amount / seller_count                                     AS order_per_seller,
+                   if(order_amount > 0, revenue / product_count, 0)                AS revenue_per_product,
+                   sum(prev_order_amount)                                          AS prev_order_amount,
+                   sum(prev_available_amount)                                      AS prev_available_amount,
+                   sum(prev_revenue)                                               AS prev_revenue,
+                   prev_product_seller_count_tuple.1                               AS prev_seller_count,
+                   prev_product_seller_count_tuple.2                               AS prev_product_count,
+                   prev_order_amount / prev_product_count                          AS prev_order_per_product,
+                   prev_order_amount / prev_seller_count                           AS prev_order_per_seller,
+                   if(prev_order_amount > 0, prev_revenue / prev_product_count, 0) AS prev_revenue_per_product,
+                   (SELECT uniq(seller_id), uniq(product_id)
+                    FROM kazanex.ke_product_daily_sales
+                    WHERE date BETWEEN ? AND ?
+                      AND category_id IN
+                          if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
+                             0,
+                             dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
+                             array(?)))                                        AS product_seller_count_tuple,
+                   (SELECT uniq(seller_id), uniq(product_id)
+                    FROM kazanex.ke_product_daily_sales
+                    WHERE date BETWEEN ? AND ?
+                      AND category_id IN
+                          if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
+                             0,
+                             dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
+                             array(?)))                                        AS prev_product_seller_count_tuple
+            FROM %s
+            WHERE category_id IN
+                  if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
+                     0,
+                     dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
+                     array(?)) AND (date = ?)
+        """
         const val GET_CATEGORIES_ANALYTICS_SQL = """
             SELECT sum(final_order_amount)                          AS order_amount,
                    sum(available_amount)                            AS available_amount,
@@ -159,56 +200,45 @@ class CHCategoryRepository(
         """
     }
 
-    fun getCategoryAnalytics(
-        categoryId: Long,
-        fromTime: LocalDate,
-        toTime: LocalDate,
-    ): ChCategoryAnalytics? {
-        return jdbcTemplate.queryForObject(
-            GET_CATEGORIES_ANALYTICS_SQL,
-            CategoryAnalyticsMapper(),
-            fromTime, toTime, categoryId, categoryId, categoryId, fromTime, toTime, categoryId, categoryId, categoryId
-        )
-    }
-
     fun getCategoryAnalyticsWithPrev(
         categoryId: Long,
-        fromTime: LocalDate,
-        toTime: LocalDate,
-        prevFromTime: LocalDate,
-        prevToTime: LocalDate,
+        queryPeriod: QueryPeriod,
     ): ChCategoryAnalyticsPair? {
-        val sqlSbBuilder = StringBuilder()
-        sqlSbBuilder.append(GET_CATEGORIES_ANALYTICS_SQL)
-        sqlSbBuilder.append("UNION ALL")
-        sqlSbBuilder.append(GET_CATEGORIES_ANALYTICS_SQL)
-        val chCategoryAnalytics = jdbcTemplate.query(
-            sqlSbBuilder.toString(),
+        val queryTable = when (queryPeriod) {
+            QueryPeriod.WEEK -> "kazanex.category_weekly_stats"
+            QueryPeriod.TWO_WEEK -> "kazanex.category_two_week_stats"
+            QueryPeriod.MONTH -> "kazanex.category_monthly_stats"
+            QueryPeriod.TWO_MONTH -> "kazanex.category_two_month_stats"
+        }
+        val fromDate = when (queryPeriod) {
+            QueryPeriod.WEEK -> LocalDate.now().minusDays(7)
+            QueryPeriod.TWO_WEEK -> LocalDate.now().minusDays(14)
+            QueryPeriod.MONTH -> LocalDate.now().minusDays(30)
+            QueryPeriod.TWO_MONTH -> LocalDate.now().minusDays(60)
+        }
+        val toDate = LocalDate.now()
+        val fromDatePrev = when (queryPeriod) {
+            QueryPeriod.WEEK -> fromDate.minusDays(7)
+            QueryPeriod.TWO_WEEK -> fromDate.minusDays(14)
+            QueryPeriod.MONTH -> fromDate.minusDays(30)
+            QueryPeriod.TWO_MONTH -> fromDate.minusDays(60)
+        }
+        val toDatePrev = fromDate
+        val aggTableDate = jdbcTemplate.queryForObject(
+            "SELECT max(date) AS max_date FROM %s".format(queryTable),
+        ) { rs, _ -> rs.getDate("max_date") }?.toLocalDate()
+            ?: throw IllegalStateException("Can't determine date for table query")
+        val sql = GET_CATEGORIES_ANALYTICS_WITH_PREV_SQL.format(queryTable)
+
+        return jdbcTemplate.queryForObject(
+            sql,
             CategoryAnalyticsMapper(),
-            fromTime,
-            toTime,
-            categoryId,
-            categoryId,
-            categoryId,
-            fromTime,
-            toTime,
-            categoryId,
-            categoryId,
-            categoryId,
-            prevFromTime,
-            prevToTime,
-            categoryId,
-            categoryId,
-            categoryId,
-            prevFromTime,
-            prevToTime,
-            categoryId,
-            categoryId,
-            categoryId
-        )
-        return ChCategoryAnalyticsPair(
-            chCategoryAnalytics = chCategoryAnalytics[0],
-            prevChCategoryAnalytics = chCategoryAnalytics[1]
+            fromDate, toDate,
+            categoryId, categoryId, categoryId,
+            fromDatePrev, toDatePrev,
+            categoryId, categoryId, categoryId,
+            categoryId, categoryId, categoryId,
+            aggTableDate
         )
     }
 
