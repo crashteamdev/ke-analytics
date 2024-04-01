@@ -106,6 +106,7 @@ class ExternalCategoryAnalyticsService(
             responseObserver.onNext(GetCategoryAnalyticsResponse.newBuilder().apply {
                 this.errorResponse = GetCategoryAnalyticsResponse.ErrorResponse.newBuilder().apply {
                     this.errorCode = GetCategoryAnalyticsResponse.ErrorResponse.ErrorCode.ERROR_CODE_UNEXPECTED
+                    this.description = e.message
                 }.build()
             }.build())
         } finally {
