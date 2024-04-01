@@ -12,13 +12,11 @@ import dev.crashteam.keanalytics.service.UserRestrictionService
 import dev.crashteam.mp.base.DatePeriod
 import dev.crashteam.mp.external.analytics.category.*
 import io.grpc.stub.StreamObserver
-import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import net.devh.boot.grpc.server.service.GrpcService
 import org.springframework.core.convert.ConversionService
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
 private val log = KotlinLogging.logger {}
@@ -46,38 +44,41 @@ class ExternalCategoryAnalyticsService(
                 }.build())
                 return
             }
-            val categoriesAnalytics = if (request.hasCategoryId()) {
-                runBlocking {
-                    categoryAnalyticsService.getCategoryAnalytics(
-                        categoryId = request.categoryId,
-                        datePeriod = request.datePeriod,
-                        sortBy = if (request.sortList.isNotEmpty()) {
-                            SortBy(
-                                sortFields = request.sortList.map {
-                                    SortField(
-                                        fieldName = it.fieldName,
-                                        order = it.order.toRepositoryDomain()
-                                    )
-                                }
-                            )
-                        } else null
-                    )
-                }
-            } else {
-                runBlocking {
-                    categoryAnalyticsService.getRootCategoryAnalytics(
-                        datePeriod = request.datePeriod,
-                        sortBy = if (request.sortList.isNotEmpty()) {
-                            SortBy(
-                                sortFields = request.sortList.map {
-                                    SortField(
-                                        fieldName = it.fieldName,
-                                        order = it.order.toRepositoryDomain()
-                                    )
-                                }
-                            )
-                        } else null
-                    )
+            val categoriesAnalytics = runBlocking {
+                try {
+                    if (request.hasCategoryId()) {
+                        categoryAnalyticsService.getCategoryAnalytics(
+                            categoryId = request.categoryId,
+                            datePeriod = request.datePeriod,
+                            sortBy = if (request.sortList.isNotEmpty()) {
+                                SortBy(
+                                    sortFields = request.sortList.map {
+                                        SortField(
+                                            fieldName = it.fieldName,
+                                            order = it.order.toRepositoryDomain()
+                                        )
+                                    }
+                                )
+                            } else null
+                        )
+                    } else {
+                        categoryAnalyticsService.getRootCategoryAnalytics(
+                            datePeriod = request.datePeriod,
+                            sortBy = if (request.sortList.isNotEmpty()) {
+                                SortBy(
+                                    sortFields = request.sortList.map {
+                                        SortField(
+                                            fieldName = it.fieldName,
+                                            order = it.order.toRepositoryDomain()
+                                        )
+                                    }
+                                )
+                            } else null
+                        )
+                    }
+                } catch (e: Exception) {
+                    log.error(e) { "Exception during get categories. request=$request" }
+                    throw e
                 }
             }
             if (categoriesAnalytics.isNullOrEmpty()) {
@@ -163,7 +164,8 @@ class ExternalCategoryAnalyticsService(
             if (!checkRequestDaysPermission(request.userId, request.datePeriod)) {
                 responseObserver.onNext(GetCategoryAnalyticsProductResponse.newBuilder().apply {
                     this.errorResponse = GetCategoryAnalyticsProductResponse.ErrorResponse.newBuilder().apply {
-                        this.errorCode = GetCategoryAnalyticsProductResponse.ErrorResponse.ErrorCode.ERROR_CODE_FORBIDDEN
+                        this.errorCode =
+                            GetCategoryAnalyticsProductResponse.ErrorResponse.ErrorCode.ERROR_CODE_FORBIDDEN
                     }.build()
                 }.build())
                 return
