@@ -23,7 +23,7 @@ class CHCategoryRepository(
         const val GET_CATEGORIES_ANALYTICS_WITH_PREV_SQL = """
             SELECT sum(order_amount)                                               AS order_amount,
                    sum(available_amount)                                           AS available_amount,
-                   sum(revenue)                                                    AS revenue,
+                   sum(revenue) / 100                                              AS revenue,
                    if(order_amount > 0, revenue / order_amount, 0)                 AS avg_bill,
                    product_seller_count_tuple.1                                    AS seller_count,
                    product_seller_count_tuple.2                                    AS product_count,
@@ -32,7 +32,7 @@ class CHCategoryRepository(
                    if(order_amount > 0, revenue / product_count, 0)                AS revenue_per_product,
                    sum(prev_order_amount)                                          AS prev_order_amount,
                    sum(prev_available_amount)                                      AS prev_available_amount,
-                   sum(prev_revenue)                                               AS prev_revenue,
+                   sum(prev_revenue) / 100                                         AS prev_revenue,
                    if(prev_order_amount > 0, prev_revenue / prev_order_amount, 0)  AS prev_avg_bill,
                    prev_product_seller_count_tuple.1                               AS prev_seller_count,
                    prev_product_seller_count_tuple.2                               AS prev_product_count,
