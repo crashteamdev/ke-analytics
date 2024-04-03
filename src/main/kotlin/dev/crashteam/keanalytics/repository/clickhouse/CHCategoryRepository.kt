@@ -195,7 +195,7 @@ class CHCategoryRepository(
                      WHERE product_id IN (?)
                        AND date BETWEEN ? AND ?
                      GROUP BY product_id, date
-                     ORDER BY date WITH FILL FROM ? TO ?
+                     ORDER BY date WITH FILL FROM toDate(?) TO toDate(?)
                   )
             GROUP BY product_id;
         """
