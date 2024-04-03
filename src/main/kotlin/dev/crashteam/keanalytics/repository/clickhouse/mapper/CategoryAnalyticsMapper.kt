@@ -6,14 +6,9 @@ import org.springframework.jdbc.core.RowMapper
 import java.math.BigDecimal
 import java.sql.ResultSet
 
-private val log = KotlinLogging.logger {}
-
 class CategoryAnalyticsMapper : RowMapper<ChCategoryAnalyticsPair> {
 
     override fun mapRow(rs: ResultSet, rowNum: Int): ChCategoryAnalyticsPair {
-        log.debug {
-            "[CategoryAnalyticsMapper] Order per product: ${rs.getDouble("order_per_product")}"
-        }
         return ChCategoryAnalyticsPair(
             orderAmount = rs.getLong("order_amount"),
             availableAmount = rs.getLong("available_amount"),
