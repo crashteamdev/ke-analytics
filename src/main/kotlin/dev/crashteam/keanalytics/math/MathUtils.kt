@@ -9,7 +9,11 @@ object MathUtils {
             BigDecimal.ZERO
         } else {
             val difference = b - a
-            (difference / a * BigDecimal(100)).stripTrailingZeros()
+            if (difference <= BigDecimal.ZERO) {
+                return BigDecimal.ZERO
+            } else {
+                (difference / a * BigDecimal(100)).stripTrailingZeros()
+            }
         }
     }
 
