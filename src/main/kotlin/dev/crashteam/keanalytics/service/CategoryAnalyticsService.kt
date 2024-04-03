@@ -43,7 +43,7 @@ class CategoryAnalyticsService(
                         try {
                             calculateCategoryAnalytics(rootCategoryId, datePeriod)
                         } catch (e: Exception) {
-                            log.error {
+                            log.error(e) {
                                 "Exception during calculate category analytics." +
                                         " categoryId=$rootCategoryId; period=$datePeriod"
                             }
@@ -93,7 +93,7 @@ class CategoryAnalyticsService(
                         try {
                             calculateCategoryAnalytics(categoryId, datePeriod)
                         } catch (e: Exception) {
-                            log.error {
+                            log.error(e) {
                                 "Exception during calculate category analytics." +
                                         " categoryId=$categoryId; period=$datePeriod"
                             }
