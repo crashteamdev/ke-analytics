@@ -12,6 +12,9 @@ object MathUtils {
             if (difference <= BigDecimal.ZERO) {
                 return BigDecimal.ZERO
             } else {
+                if (a == BigDecimal.ZERO) {
+                    return BigDecimal.ZERO
+                }
                 (difference / a * BigDecimal(100)).stripTrailingZeros()
             }
         }
