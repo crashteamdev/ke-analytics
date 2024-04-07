@@ -12,8 +12,12 @@ object MathUtils {
                 BigDecimal("100")
             }
         } else {
-            val difference = b - a
-            ((difference / a.abs()) * BigDecimal("100")).stripTrailingZeros()
+            if (a.signum() == 0) {
+                BigDecimal.ZERO
+            } else {
+                val difference = b - a
+                ((difference / a.abs()) * BigDecimal("100")).stripTrailingZeros()
+            }
         }
     }
 
