@@ -5,18 +5,15 @@ import java.math.BigDecimal
 object MathUtils {
 
     fun percentageDifference(a: BigDecimal, b: BigDecimal): BigDecimal {
-        return if (a == BigDecimal.ZERO && b == BigDecimal.ZERO) {
-            BigDecimal.ZERO
+        return if (a == BigDecimal.ZERO) {
+            if (b == BigDecimal.ZERO) {
+                BigDecimal.ZERO
+            } else {
+                BigDecimal("100")
+            }
         } else {
             val difference = b - a
-            if (difference <= BigDecimal.ZERO) {
-                return BigDecimal.ZERO
-            } else {
-                if (a <= BigDecimal.ZERO) {
-                    return BigDecimal.ZERO
-                }
-                (difference / a * BigDecimal(100)).stripTrailingZeros()
-            }
+            ((difference / a.abs()) * BigDecimal("100")).stripTrailingZeros()
         }
     }
 
