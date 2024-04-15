@@ -88,7 +88,7 @@ class SecurityConfig(
                 )
             )
             .addFilterAt(ApiKeyAuthHandlerFilter(userRepository), SecurityWebFiltersOrder.AUTHORIZATION)
-            .addFilterAt(ApiUserLimiterFilter(apiKeySessionRedisTemplate, userRepository), SecurityWebFiltersOrder.LAST)
+            .addFilterAt(ApiUserLimiterFilter(apiKeySessionRedisTemplate), SecurityWebFiltersOrder.LAST)
             .build()
     }
 

@@ -69,7 +69,7 @@ kazanex:
   groupCron: '0 0/10 * * * ?'
   productCron: '0 0 0/3 * * ?'
   productCronV2: '0 0 0,21 ? * * *'
-  paymentCron: '0/10 * * * * ?'
+  aggregateCron: '0 0 0/6 * * ?'
   sellerCron: '0 0 0/3 * * ?'
   reportCleanUpCron: '0 0 0/1 * * ?'
   reportGenerateCron: '0/3 * * * * ?'
@@ -119,7 +119,8 @@ clickhouse:
   url: "jdbc:clickhouse://${CLICKHOUSE_HOST:localhost}:${CLICKHOUSE_PORT:8443}/${CLICKHOUSE_DB:uzum}"
   user: "dbuser"
   password: ${CLICKHOUSE_PASSWORD:strongPasswd}
-  connection.timeout: 50000
+  connectionTimeout: 120000
+  socketTimeout: 100000
   compress: false
   ssl: false
   liquibase:
