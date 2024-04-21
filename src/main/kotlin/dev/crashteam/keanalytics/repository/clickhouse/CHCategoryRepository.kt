@@ -306,7 +306,7 @@ class CHCategoryRepository(
                 }
             }
         }
-        sqlStringBuilder.append("LIMIT ${page.offset},${page.limit}")
+        sqlStringBuilder.append(" LIMIT ${page.offset},${page.limit}")
 
         log.debug { "Get category products analytics SQL: $sqlStringBuilder" }
 
