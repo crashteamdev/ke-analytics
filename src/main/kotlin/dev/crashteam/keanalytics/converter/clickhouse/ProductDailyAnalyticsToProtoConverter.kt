@@ -30,6 +30,7 @@ class ProductDailyAnalyticsToProtoConverter :
             this.appearAt = source.firstDiscovered.toLocalDate().toProtobufDate()
             this.reviewsCount = source.reviewAmount
             this.rating = source.rating.setScale(1, RoundingMode.HALF_UP).toDouble()
+            this.photoKey = source.photoKey
             this.addAllPriceChart(source.priceChart.map { it.toMoney() })
             this.addAllSalesChart(source.orderChart)
             this.addAllRevenueChart(source.revenueChart.map { it.toMoney() })
