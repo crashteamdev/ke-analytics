@@ -199,36 +199,33 @@ class CHProductRepository(
             WHERE order_amount > 0
         """.trimIndent()
         private val GET_SELLER_OVERALL_INFO = """
-            WITH product_sales AS
-                (SELECT date,
-                        product_id,
-                        title,
-                        total_orders_amount_diff AS order_amount,
-                        total_orders_amount_diff * purchase_price AS revenue,
-                        purchase_price,
-                        available_amount
-                 FROM (
-                          SELECT date,
-                                 product_id,
-                                 title,
-                                 available_amount,
-                                 total_orders_amount_max - total_orders_amount_min AS total_orders_amount_diff,
-                                 purchase_price
-                          FROM (
-                                   SELECT date,
-                                          product_id,
-                                          any(title)               AS title,
-                                          max(available_amount)    AS available_amount,
-                                          min(total_orders_amount) AS total_orders_amount_min,
-                                          max(total_orders_amount) AS total_orders_amount_max,
-                                          quantile(purchase_price) AS purchase_price
-                                   FROM kazanex.product
-                                   WHERE seller_link = ?
-                                     AND timestamp BETWEEN ? AND ?
-                                   GROUP BY product_id, toDate(timestamp) AS date
-                                   ORDER BY date
-                                   )
-                          ))
+            WITH product_sales AS (
+                    SELECT date,
+                           product_id,
+                           anyLastMerge(title)                                                                              AS title,
+                           minMerge(min_total_order_amount)                                                                 AS total_orders_amount_min,
+                           maxMerge(max_total_order_amount)                                                                 AS total_orders_amount_max,
+                           minMerge(min_available_amount)                                                                   AS available_amount,
+                           total_orders_amount_max - total_orders_amount_min                                                AS daily_order_amount,
+                           lagInFrame(total_orders_amount_max)
+                                      over (partition by product_id order by date ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING) AS max_total_order_amount_delta,
+                           multiIf(total_orders_amount_min < max_total_order_amount_delta,
+                                   daily_order_amount - (max_total_order_amount_delta - total_orders_amount_min),
+                                   max_total_order_amount_delta - total_orders_amount_max >= 0,
+                                   daily_order_amount + (max_total_order_amount_delta - total_orders_amount_max),
+                                   max_total_order_amount_delta > 0 AND
+                                   total_orders_amount_min > max_total_order_amount_delta,
+                                   daily_order_amount + (total_orders_amount_min - max_total_order_amount_delta),
+                                   daily_order_amount)                                                                      AS order_amount_with_gaps,
+                           if(order_amount_with_gaps < 0, 0, order_amount_with_gaps)                                        AS order_amount,
+                           quantileMerge(median_price)                                                                      AS purchase_price,
+                           order_amount * purchase_price                                                                    AS revenue
+                    FROM kazanex.ke_product_daily_sales
+                    WHERE seller_link = ?
+                      AND date BETWEEN ? AND ?
+                    GROUP BY product_id, date
+                    ORDER BY date
+            )
 
             SELECT sum(order_amount_sum)                                         AS order_amount,
                    sum(revenue) / 100                                            AS revenue,
@@ -250,58 +247,75 @@ class CHProductRepository(
         private val GET_SELLER_ORDER_DYNAMIC = """
             WITH product_sales AS
                 (SELECT date,
-                        total_orders_amount_diff AS order_amount
-                 FROM (
-                          SELECT date,
-                                 product_id,
-                                 title,
-                                 total_orders_amount_max - total_orders_amount_min AS total_orders_amount_diff
-                          FROM (
-                                   SELECT date,
-                                          product_id,
-                                          any(title)               AS title,
-                                          min(total_orders_amount) AS total_orders_amount_min,
-                                          max(total_orders_amount) AS total_orders_amount_max
-                                   FROM kazanex.product
-                                   WHERE seller_link = ?
-                                     AND timestamp BETWEEN ? AND ?
-                                   GROUP BY product_id, toDate(timestamp) AS date
-                                   ORDER BY date
-                                   )
-                          ))
+                        product_id,
+                        anyLastMerge(title)                                                                              AS title,
+                        minMerge(min_total_order_amount)                                                                 AS total_orders_amount_min,
+                        maxMerge(max_total_order_amount)                                                                 AS total_orders_amount_max,
+                        minMerge(min_available_amount)                                                                   AS available_amount,
+                        total_orders_amount_max - total_orders_amount_min                                                AS daily_order_amount,
+                        lagInFrame(total_orders_amount_max)
+                                   over (partition by product_id order by date ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING) AS max_total_order_amount_delta,
+                        multiIf(total_orders_amount_min < max_total_order_amount_delta,
+                                daily_order_amount - (max_total_order_amount_delta - total_orders_amount_min),
+                                max_total_order_amount_delta - total_orders_amount_max >= 0,
+                                daily_order_amount + (max_total_order_amount_delta - total_orders_amount_max),
+                                max_total_order_amount_delta > 0 AND
+                                total_orders_amount_min > max_total_order_amount_delta,
+                                daily_order_amount + (total_orders_amount_min - max_total_order_amount_delta),
+                                daily_order_amount)                                                                      AS order_amount_with_gaps,
+                        if(order_amount_with_gaps < 0, 0, order_amount_with_gaps)                                        AS order_amount
+                 FROM kazanex.ke_product_daily_sales
+                 WHERE seller_link = ?
+                   AND date BETWEEN ? AND ?
+                 GROUP BY product_id, date
+                 ORDER BY date)
 
             SELECT date, sum(order_amount) AS order_amount FROM product_sales GROUP BY date
         """.trimIndent()
         private val GET_SELLER_SALES_REPORT = """
             SELECT product_id,
-                   anyLast(seller_title)        AS seller_title,
-                   anyLast(seller_id)           AS seller_id,
-                   anyLast(latest_category_id)  AS latest_category_id,
-                   groupArray(order_amount)     AS order_graph,
-                   groupArray(available_amount) AS available_amount_graph,
-                   groupArray(price)            AS price_graph,
-                   anyLast(available_amount)    AS available_amounts,
-                   anyLast(price)               AS purchase_price,
-                   sum(sales)                   AS sales,
+                   anyLast(seller_title)                                                                AS seller_title,
+                   anyLast(seller_id)                                                                   AS seller_id,
+                   anyLast(category_id)                                                                 AS latest_category_id,
+                   groupArray(final_order_amount)                                                       AS order_graph,
+                   groupArray(available_amount)                                                         AS available_amount_graph,
+                   groupArray(median_price)                                                             AS price_graph,
+                   anyLast(available_amount)                                                            AS available_amounts,
+                   anyLast(median_price)                                                                AS purchase_price,
+                   sum(revenue)                                                                         AS sales,
                    (dictGet('kazanex.categories_hierarchical_dictionary', 'title', latest_category_id)) AS category_name,
-                   anyLast(name)                                                                        AS name,
-                   count() OVER () AS total
+                   anyLast(title)                                                                       AS name,
+                   count() OVER ()                                                                      AS total
             FROM (
-                     SELECT product_id,
-                            max(total_orders_amount) - min(total_orders_amount)                                      AS order_amount,
-                            min(total_available_amount)                                                              AS available_amount,
-                            quantile(purchase_price / 100)                                                           AS price,
-                            (max(total_orders_amount) - min(total_orders_amount)) * (quantile(purchase_price) / 100) AS sales,
-                            anyLast(seller_title)                                                                    AS seller_title,
-                            anyLast(seller_id)                                                                       AS seller_id,
-                            anyLast(latest_category_id)                                                              AS latest_category_id,
-                            anyLast(title)                                                                           AS name
-                     FROM kazanex.product
+                     SELECT date,
+                            product_id,
+                            anyLast(category_id)                                                                             AS category_id,
+                            anyLastMerge(title)                                                                              AS title,
+                            minMerge(min_total_order_amount)                                                                 AS total_orders_amount_min,
+                            maxMerge(max_total_order_amount)                                                                 AS total_orders_amount_max,
+                               minMerge(min_available_amount)                                                                AS available_amount,
+                                total_orders_amount_max - total_orders_amount_min                                            AS daily_order_amount,
+                            lagInFrame(total_orders_amount_max)
+                                       over (partition by product_id order by date ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING) AS max_total_order_amount_delta,
+                            multiIf(total_orders_amount_min < max_total_order_amount_delta,
+                                    daily_order_amount - (max_total_order_amount_delta - total_orders_amount_min),
+                                    max_total_order_amount_delta - total_orders_amount_max >= 0,
+                                    daily_order_amount + (max_total_order_amount_delta - total_orders_amount_max),
+                                    max_total_order_amount_delta > 0 AND
+                                    total_orders_amount_min > max_total_order_amount_delta,
+                                    daily_order_amount + (total_orders_amount_min - max_total_order_amount_delta),
+                                    daily_order_amount)                                                                      AS order_amount_with_gaps,
+                            if(order_amount_with_gaps < 0, 0, order_amount_with_gaps)                                        AS final_order_amount,
+                            quantileMerge(median_price)                                                                      AS median_price,
+                            maxMerge(seller_title)                                                                           AS seller_title,
+                            anyLast(seller_id)                                                                               AS seller_id,
+                            final_order_amount * median_price                                                                AS revenue
+                     FROM kazanex.ke_product_daily_sales
                      WHERE seller_link = ?
-                       AND timestamp BETWEEN ? AND ?
-                     GROUP BY product_id, toDate(timestamp) AS date
+                       AND date BETWEEN ? AND ?
+                     GROUP BY product_id, date
                      ORDER BY date
-                     )
+            )
             GROUP BY product_id
             LIMIT ? OFFSET ?
         """.trimIndent()
@@ -310,48 +324,49 @@ class CHProductRepository(
         SELECT product_id,
                anyLast(seller_title)                                                                AS seller_title,
                anyLast(seller_id)                                                                   AS seller_id,
-               anyLast(latest_category_id)                                                          AS latest_category_id,
+               anyLast(category_id)                                                                 AS latest_category_id,
                groupArray(order_amount)                                                             AS order_graph,
-               groupArray(available_amount)                                                         AS available_amount_graph,
-               groupArray(price)                                                                    AS price_graph,
+                  groupArray(available_amount)                                                      AS available_amount_graph,
+                   groupArray(median_price)                                                         AS price_graph,
                anyLast(available_amount)                                                            AS available_amounts,
-               anyLast(price)                                                                       AS purchase_price,
-               sum(sales)                                                                           AS sales,
+               anyLast(median_price)                                                                AS purchase_price,
+               sum(revenue)                                                                         AS sales,
                (dictGet('kazanex.categories_hierarchical_dictionary', 'title', latest_category_id)) AS category_name,
-               anyLast(name)                                                                        AS name,
+               anyLast(title)                                                                        AS name,
                count() OVER ()                                                                      AS total
         FROM (
-                 SELECT product_id,
-                        max(total_orders_amount) - min(total_orders_amount)                                      AS order_amount,
-                        min(total_available_amount)                                                              AS available_amount,
-                        quantile(purchase_price / 100)                                                           AS price,
-                        (max(total_orders_amount) - min(total_orders_amount)) * (quantile(purchase_price) / 100) AS sales,
-                        anyLast(seller_title)                                                                    AS seller_title,
-                        anyLast(seller_id)                                                                       AS seller_id,
-                        anyLast(latest_category_id)                                                              AS latest_category_id,
-                        anyLast(title)                                                                           AS name
-                 FROM (
-                          SELECT timestamp,
-                                 product_id,
-                                 total_orders_amount,
-                                 total_available_amount,
-                                 available_amount,
-                                 purchase_price,
-                                 seller_title,
-                                 seller_id,
-                                 latest_category_id,
-                                 title
-                          FROM kazanex.product
-                          WHERE timestamp BETWEEN ? AND ?
-                            AND latest_category_id IN
-                                if(length(dictGetDescendants('categories_hierarchical_dictionary', ?, 0)) >
-                                   0,
-                                   dictGetDescendants('categories_hierarchical_dictionary', ?, 0),
-                                   array(?))
-                          )
-                 GROUP BY product_id, toDate(timestamp) AS date
-                 ORDER BY date
-                 )
+            SELECT date,
+                   product_id,
+                   anyLast(category_id)                                                                             AS category_id,
+                   anyLastMerge(title)                                                                              AS title,
+                   minMerge(min_total_order_amount)                                                                 AS total_orders_amount_min,
+                   maxMerge(max_total_order_amount)                                                                 AS total_orders_amount_max,
+                   minMerge(min_available_amount)                                                                   AS available_amount,
+                   total_orders_amount_max - total_orders_amount_min                                                AS daily_order_amount,
+                   lagInFrame(total_orders_amount_max)
+                              over (partition by product_id order by date ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING) AS max_total_order_amount_delta,
+                   multiIf(total_orders_amount_min < max_total_order_amount_delta,
+                           daily_order_amount - (max_total_order_amount_delta - total_orders_amount_min),
+                           max_total_order_amount_delta - total_orders_amount_max >= 0,
+                           daily_order_amount + (max_total_order_amount_delta - total_orders_amount_max),
+                           max_total_order_amount_delta > 0 AND
+                           total_orders_amount_min > max_total_order_amount_delta,
+                           daily_order_amount + (total_orders_amount_min - max_total_order_amount_delta),
+                           daily_order_amount)                                                                      AS order_amount_with_gaps,
+                   if(order_amount_with_gaps < 0, 0, order_amount_with_gaps)                                        AS order_amount,
+                   quantileMerge(median_price)                                                                      AS median_price,
+                   maxMerge(seller_title)                                                                           AS seller_title,
+                   anyLast(seller_id)                                                                               AS seller_id,
+                   order_amount * median_price                                                                      AS revenue
+            FROM kazanex.ke_product_daily_sales
+            WHERE date BETWEEN ? AND ?
+              AND ke_product_daily_sales.category_id IN
+                  if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
+                     0,
+                     dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
+                     array(?))
+            GROUP BY product_id, date
+        )
         GROUP BY product_id
         LIMIT ? OFFSET ?
     """.trimIndent()
@@ -483,7 +498,7 @@ class CHProductRepository(
         return jdbcTemplate.queryForObject(
             GET_SELLER_OVERALL_INFO,
             SellerOverallInfoMapper(),
-            sellerLink, fromTime, toTime
+            sellerLink, fromTime.toLocalDate(), toTime.toLocalDate()
         )
     }
 
@@ -495,7 +510,7 @@ class CHProductRepository(
         return jdbcTemplate.query(
             GET_SELLER_ORDER_DYNAMIC,
             SellerOrderDynamicMapper(),
-            sellerLink, fromTime, toTime
+            sellerLink, fromTime.toLocalDate(), toTime.toLocalDate()
         )
     }
 
@@ -509,7 +524,7 @@ class CHProductRepository(
         return jdbcTemplate.query(
             GET_SELLER_SALES_REPORT,
             ProductSalesReportMapper(),
-            sellerLink, fromTime, toTime, limit, offset
+            sellerLink, fromTime.toLocalDate(), toTime.toLocalDate(), limit, offset
         )
     }
 
@@ -523,7 +538,7 @@ class CHProductRepository(
         return jdbcTemplate.query(
             GET_CATEGORY_SALES_REPORT,
             ProductSalesReportMapper(),
-            fromTime, toTime, categoryId, categoryId, categoryId, limit, offset
+            fromTime.toLocalDate(), toTime.toLocalDate(), categoryId, categoryId, categoryId, limit, offset
         )
     }
 
