@@ -19,3 +19,5 @@ databaseChangeLog:
       file: db/changelog/db.ch.changelog-1.8.sql
   - include:
       file: db/changelog/db.ch.changelog-1.9.sql
+  - include:
+      file: db/changelog/db.ch.changelog-1.10.sql
