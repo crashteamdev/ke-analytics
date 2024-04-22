@@ -498,7 +498,7 @@ class CHProductRepository(
         return jdbcTemplate.queryForObject(
             GET_SELLER_OVERALL_INFO,
             SellerOverallInfoMapper(),
-            sellerLink, fromTime, toTime
+            sellerLink, fromTime.toLocalDate(), toTime.toLocalDate()
         )
     }
 
@@ -510,7 +510,7 @@ class CHProductRepository(
         return jdbcTemplate.query(
             GET_SELLER_ORDER_DYNAMIC,
             SellerOrderDynamicMapper(),
-            sellerLink, fromTime, toTime
+            sellerLink, fromTime.toLocalDate(), toTime.toLocalDate()
         )
     }
 
@@ -524,7 +524,7 @@ class CHProductRepository(
         return jdbcTemplate.query(
             GET_SELLER_SALES_REPORT,
             ProductSalesReportMapper(),
-            sellerLink, fromTime, toTime, limit, offset
+            sellerLink, fromTime.toLocalDate(), toTime.toLocalDate(), limit, offset
         )
     }
 
@@ -538,7 +538,7 @@ class CHProductRepository(
         return jdbcTemplate.query(
             GET_CATEGORY_SALES_REPORT,
             ProductSalesReportMapper(),
-            fromTime, toTime, categoryId, categoryId, categoryId, limit, offset
+            fromTime.toLocalDate(), toTime.toLocalDate(), categoryId, categoryId, categoryId, limit, offset
         )
     }
 
