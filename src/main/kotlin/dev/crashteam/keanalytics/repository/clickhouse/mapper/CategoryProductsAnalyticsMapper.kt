@@ -11,7 +11,7 @@ class CategoryProductsAnalyticsMapper : RowMapper<ChCategoryProductsAnalytics> {
             productId = rs.getString("product_id"),
             title = rs.getString("title"),
             revenue = rs.getBigDecimal("revenue"),
-            medianPrice = rs.getBigDecimal("median_price"),
+            medianPrice = rs.getBigDecimal("price"),
             availableAmount = rs.getLong("available_amount"),
             orderAmount = rs.getLong("order_amount"),
             reviewsAmount = rs.getLong("reviews_amount"),

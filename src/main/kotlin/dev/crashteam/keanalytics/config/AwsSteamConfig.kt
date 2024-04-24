@@ -6,7 +6,6 @@ import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.services.dynamodbv2.model.BillingMode
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.InitialPositionInStream
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration.*
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.SimpleRecordsFetcherFactory
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker
 import com.amazonaws.services.kinesis.metrics.impl.NullMetricsFactory
@@ -44,20 +43,20 @@ class AwsSteamConfig(
             awsStreamProperties.paymentStream.failOverTimeMillis,
             "${awsStreamProperties.paymentStream.consumerName}-${UUID.randomUUID()}",
             awsStreamProperties.paymentStream.maxRecords,
-            DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
-            DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
-            DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS,
-            DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
-            DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
+            KinesisClientLibConfiguration.DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
+            KinesisClientLibConfiguration.DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
+            KinesisClientLibConfiguration.DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS,
+            KinesisClientLibConfiguration.DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
+            KinesisClientLibConfiguration.DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
             ClientConfiguration(),
             ClientConfiguration(),
             ClientConfiguration(),
-            DEFAULT_TASK_BACKOFF_TIME_MILLIS,
-            DEFAULT_METRICS_BUFFER_TIME_MILLIS,
-            DEFAULT_METRICS_MAX_QUEUE_SIZE,
-            DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
+            KinesisClientLibConfiguration.DEFAULT_TASK_BACKOFF_TIME_MILLIS,
+            KinesisClientLibConfiguration.DEFAULT_METRICS_BUFFER_TIME_MILLIS,
+            KinesisClientLibConfiguration.DEFAULT_METRICS_MAX_QUEUE_SIZE,
+            KinesisClientLibConfiguration.DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
             awsStreamProperties.region,
-            DEFAULT_SHUTDOWN_GRACE_MILLIS,
+            KinesisClientLibConfiguration.DEFAULT_SHUTDOWN_GRACE_MILLIS,
             BillingMode.PAY_PER_REQUEST,
             SimpleRecordsFetcherFactory(),
             Duration.ofMinutes(1).toMillis(),
