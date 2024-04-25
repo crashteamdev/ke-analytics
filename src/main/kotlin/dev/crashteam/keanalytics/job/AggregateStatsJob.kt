@@ -2,20 +2,25 @@ package dev.crashteam.keanalytics.job
 
 import dev.crashteam.keanalytics.extensions.getApplicationContext
 import dev.crashteam.keanalytics.repository.clickhouse.CHCategoryRepository
+import dev.crashteam.keanalytics.service.AggregateJobService
+import dev.crashteam.keanalytics.service.model.StatType
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import org.quartz.DisallowConcurrentExecution
 import org.quartz.Job
 import org.quartz.JobExecutionContext
 import org.springframework.jdbc.core.JdbcTemplate
-import java.time.LocalDate
 
 private val log = KotlinLogging.logger {}
 
+@DisallowConcurrentExecution
 class AggregateStatsJob : Job {
 
     private lateinit var jdbcTemplate: JdbcTemplate
+
+    private lateinit var aggregateJobService: AggregateJobService
 
     private lateinit var chCategoryRepository: CHCategoryRepository
 
@@ -23,6 +28,7 @@ class AggregateStatsJob : Job {
         val applicationContext = context.getApplicationContext()
         jdbcTemplate = applicationContext.getBean("clickHouseJdbcTemplate") as JdbcTemplate
         chCategoryRepository = applicationContext.getBean(CHCategoryRepository::class.java)
+        aggregateJobService = applicationContext.getBean(AggregateJobService::class.java)
         val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)!!
         runBlocking {
             val firstTask = async {
@@ -56,18 +62,16 @@ class AggregateStatsJob : Job {
     ) {
         for (statType in StatType.values()) {
             val tableName = tableDetermineBlock(statType)
-            val aggTableLastUpdateDate = jdbcTemplate.queryForObject(
-                MAX_DATE_AGG_STATS_SQL.format(tableName),
-            ) { rs, _ -> rs.getDate("max_date") }
-            log.info { "Aggregate table `$tableName` last update date `$aggTableLastUpdateDate`" }
-
-            if (aggTableLastUpdateDate?.toLocalDate() == LocalDate.now()) continue
-
-            rootCategoryIds.forEach { rootCategoryId ->
-                val insertStatSql = buildSqlBlock(rootCategoryId, statType)
-                log.debug { "Insert aggregate table sql: $insertStatSql" }
-                log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
-                jdbcTemplate.execute(insertStatSql)
+            for (rootCategoryId in rootCategoryIds) {
+                val isAlreadyExists =
+                    aggregateJobService.checkCategoryAlreadyAggregated(tableName, rootCategoryId, statType)
+                if (!isAlreadyExists) {
+                    val insertStatSql = buildSqlBlock(rootCategoryId, statType)
+                    log.debug { "Insert aggregate table sql: $insertStatSql" }
+                    log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
+                    jdbcTemplate.execute(insertStatSql)
+                    aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
+                }
             }
         }
     }
@@ -132,13 +136,6 @@ class AggregateStatsJob : Job {
         StatType.TWO_WEEK -> "toDate(now()) - 14"
         StatType.MONTH -> "toDate(now()) - 30"
         StatType.TWO_MONTH -> "toDate(now()) - 60"
-    }
-
-    private enum class StatType {
-        WEEK,
-        TWO_WEEK,
-        MONTH,
-        TWO_MONTH,
     }
 
     companion object {
