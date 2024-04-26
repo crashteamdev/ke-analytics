@@ -136,7 +136,7 @@ class CHCategoryRepository(
                             if(order_amount_with_gaps < 0, 0, order_amount_with_gaps)                                        AS final_order_amount,
                             median_price * final_order_amount                                                                AS revenue,
                             minMerge(p.min_available_amount)                                                                 AS available_amount,
-                            quantileMerge(p.median_price)                                                                    AS median_price
+                            quantileMerge(p.median_price) / 100                                                              AS median_price
                      FROM kazanex.ke_product_daily_sales p
                      WHERE date BETWEEN ? AND ?
                        AND category_id IN
