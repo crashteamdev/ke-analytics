@@ -10,7 +10,7 @@ data class ChProductDailyAnalytics(
     val sellerLink: String,
     val sellerTitle: String,
     val price: BigDecimal,
-    val fullPrice: BigDecimal,
+    val fullPrice: BigDecimal?,
     val reviewAmount: Long,
     val revenue: BigDecimal,
     val photoKey: String,

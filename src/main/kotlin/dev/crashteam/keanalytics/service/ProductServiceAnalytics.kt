@@ -115,7 +115,7 @@ class ProductServiceAnalytics(
                 sellerTitle = productDailyAnalytics.sellerTitle,
             ),
             price = productDailyAnalytics.price.setScale(2, RoundingMode.HALF_UP),
-            fullPrice = productDailyAnalytics.fullPrice.setScale(2, RoundingMode.HALF_UP),
+            fullPrice = productDailyAnalytics.fullPrice?.setScale(2, RoundingMode.HALF_UP),
             reviewAmount = productDailyAnalytics.reviewAmount,
             revenue = productDailyAnalytics.revenue.setScale(2, RoundingMode.HALF_UP),
             photoKey = productDailyAnalytics.photoKey,

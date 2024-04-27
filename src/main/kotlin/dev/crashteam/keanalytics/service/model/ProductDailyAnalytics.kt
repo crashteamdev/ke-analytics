@@ -9,7 +9,7 @@ data class ProductDailyAnalytics(
     val category: ProductDailyAnalyticsCategory,
     val seller: ProductDailyAnalyticsSeller,
     val price: BigDecimal,
-    val fullPrice: BigDecimal,
+    val fullPrice: BigDecimal?,
     val reviewAmount: Long,
     val revenue: BigDecimal,
     val photoKey: String,
