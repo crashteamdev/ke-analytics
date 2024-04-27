@@ -39,7 +39,7 @@ class CategoryAnalyticsInfoToViewConverter :
                 this.revenue = source.analyticsPrevPeriod.revenue.toMoney()
                 this.revenuePerProduct = source.analyticsPrevPeriod.revenuePerProduct.toMoney()
                 this.salesCount = source.analyticsPrevPeriod.salesCount
-                this.productCount = source.analytics.productCount
+                this.productCount = source.analyticsPrevPeriod.productCount
                 this.averageBill = source.analyticsPrevPeriod.averageBill.toMoney()
                 this.sellerCount = source.analyticsPrevPeriod.sellerCount
                 this.tsts = source.analyticsPrevPeriod.tsts.toDouble()
