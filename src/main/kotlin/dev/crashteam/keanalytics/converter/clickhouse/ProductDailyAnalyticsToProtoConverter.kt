@@ -25,7 +25,7 @@ class ProductDailyAnalyticsToProtoConverter :
                 this.sellerTitle = source.seller.sellerTitle
             }.build()
             this.price = source.price.toMoney()
-            this.fullPrice = source.fullPrice?.toMoney()
+            source.fullPrice?.let { this.fullPrice = source.fullPrice.toMoney() }
             this.revenue = source.revenue.toMoney()
             this.appearAt = source.firstDiscovered.toLocalDate().toProtobufDate()
             this.reviewsCount = source.reviewAmount
