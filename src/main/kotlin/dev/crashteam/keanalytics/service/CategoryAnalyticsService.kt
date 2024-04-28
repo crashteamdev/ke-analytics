@@ -221,7 +221,7 @@ class CategoryAnalyticsService(
             when (sortField.fieldName) {
                 "order_amount" -> compareBy<CategoryAnalyticsInfo> { it.analytics.salesCount }
                 "revenue" -> compareBy { it.analytics.revenue }
-                "avg_bill" -> compareBy { it.analytics.averageBill }
+                "average_bill" -> compareBy { it.analytics.averageBill }
                 "seller_count" -> compareBy { it.analytics.sellerCount }
                 "product_count" -> compareBy { it.analytics.productCount }
                 "order_per_product" -> compareBy { it.analytics.tsts }
