@@ -1,10 +1,5 @@
 package dev.crashteam.keanalytics.service
 
-import dev.crashteam.keanalytics.client.yookassa.YooKassaClient
-import dev.crashteam.keanalytics.client.yookassa.model.PaymentAmount
-import dev.crashteam.keanalytics.client.yookassa.model.PaymentConfirmation
-import dev.crashteam.keanalytics.client.yookassa.model.PaymentRequest
-import dev.crashteam.keanalytics.client.yookassa.model.PaymentResponse
 import dev.crashteam.keanalytics.domain.mongo.*
 import dev.crashteam.keanalytics.extensions.mapToSubscription
 import dev.crashteam.keanalytics.repository.mongo.PaymentRepository
@@ -24,8 +19,6 @@ import org.springframework.transaction.annotation.Transactional
 import reactor.core.publisher.Mono
 import java.math.BigDecimal
 import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
-import java.util.*
 
 private val log = KotlinLogging.logger {}
 
@@ -35,7 +28,6 @@ class PaymentService(
     val userRepository: UserRepository,
     val referralCodeRepository: ReferralCodeRepository,
     val promoCodeRepository: PromoCodeRepository,
-    val youKassaClient: YooKassaClient,
     val reactiveMongoTemplate: ReactiveMongoTemplate,
 ) {
 
@@ -134,44 +126,6 @@ class PaymentService(
         val payment = paymentRepository.findByPaymentId(paymentId).awaitSingle()
         val updatedPayment = payment.copy(paid = paymentPaid, status = paymentStatus)
         paymentRepository.save(updatedPayment).awaitSingleOrNull()
-    }
-
-    suspend fun createUpgradeUserSubscriptonPayment(
-        userDocument: UserDocument,
-        upgradeTarget: UserSubscription,
-        paymentRedirectUrl: String
-    ): PaymentResponse {
-        val currentUserSubscription = userDocument.subscription!!
-        val daysLeft = ChronoUnit.DAYS.between(LocalDateTime.now(), currentUserSubscription.endAt)
-        val currentUserSub = currentUserSubscription.subType?.mapToSubscription()!!
-        val alreadyPayed = currentUserSub.price() - (currentUserSub.price() / 30) * (30 - daysLeft)
-        val newSubPrice = (upgradeTarget.price() / 30) * daysLeft
-        val upgradePrice = newSubPrice - alreadyPayed
-
-        val paymentRequest = PaymentRequest(
-            amount = PaymentAmount(
-                upgradePrice.toString(),
-                "RUB"
-            ),
-            capture = true,
-            confirmation = PaymentConfirmation("redirect", paymentRedirectUrl),
-            createdAt = LocalDateTime.now(),
-            description = "Upgrade subscription from ${currentUserSub.name} to ${upgradeTarget.name}",
-            metadata = mapOf("sub_type" to upgradeTarget.name)
-        )
-        val paymentResponse = youKassaClient.createPayment(UUID.randomUUID().toString(), paymentRequest)
-        val paymentDocument = PaymentDocument(
-            paymentResponse.id,
-            userDocument.userId,
-            paymentResponse.status,
-            paymentResponse.paid,
-            BigDecimal(upgradePrice).setScale(2),
-            upgradeTarget.num,
-            daysLeft.toInt()
-        )
-        paymentRepository.save(paymentDocument).awaitSingleOrNull()
-
-        return paymentResponse
     }
 
     @Transactional

@@ -48,7 +48,7 @@ class ApiKeyAuthHandlerFilter(
                 log.error(it) { "Failed to handle request" }
                 val serverWebInputException = it as? ServerWebInputException
                 exchange.response.rawStatusCode =
-                    serverWebInputException?.status?.value() ?: HttpStatus.INTERNAL_SERVER_ERROR.value()
+                    serverWebInputException?.statusCode?.value() ?: HttpStatus.INTERNAL_SERVER_ERROR.value()
                 exchange.response.setComplete()
             }
         }

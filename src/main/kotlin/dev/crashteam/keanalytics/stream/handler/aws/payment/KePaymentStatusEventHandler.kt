@@ -7,7 +7,6 @@ import dev.crashteam.payment.PaymentStatus
 import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import org.springframework.core.convert.ConversionService
 import org.springframework.stereotype.Component
 
 private val log = KotlinLogging.logger {}
