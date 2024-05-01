@@ -147,10 +147,11 @@
             <artifactId>liquibase-clickhouse</artifactId>
             <version>0.8.0</version>
         </dependency>
+        <!--Deprecated-->
         <dependency>
-            <groupId>com.clickhouse</groupId>
+            <groupId>ru.yandex.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
-            <version>0.6.0</version>
+            <version>0.3.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
