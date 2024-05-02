@@ -25,9 +25,7 @@ private val log = KotlinLogging.logger {}
 @Component
 class KeProductItemStreamListener(
     private val objectMapper: ObjectMapper,
-    private val productService: ProductService,
     private val conversionService: ConversionService,
-    private val productChangeTimeSeriesRepository: ProductChangeTimeSeriesRepository,
     private val sellerRepository: SellerRepository,
     private val chProductRepository: CHProductRepository,
 ) : BatchStreamListener<String, ObjectRecord<String, String>> {
@@ -38,22 +36,6 @@ class KeProductItemStreamListener(
         }
         log.info { "Consumer product records count ${keProductItemStreamRecords.size}" }
         coroutineScope {
-            // OLD schema
-            val oldSaveProductTask = async {
-                try {
-                    log.info { "Save ${keProductItemStreamRecords.size} products (OLD SCHEMA)" }
-                    val productDocuments = keProductItemStreamRecords.map {
-                        ProductDocumentTimeWrapper(
-                            productDocument = toOldProductDocument(it),
-                            time = it.time
-                        )
-                    }
-                    productService.saveProductWithHistory(productDocuments)
-                } catch (e: Exception) {
-                    log.error(e) { "Exception during save products on OLD SCHEMA" }
-                }
-            }
-
             // NEW schema (Clickhouse)
             val saveProductTask = async {
                 try {
@@ -82,60 +64,7 @@ class KeProductItemStreamListener(
                     log.error(e) { "Exception during save seller info" }
                 }
             }
-            awaitAll(oldSaveProductTask, saveProductTask, sellerTask)
+            awaitAll(saveProductTask, sellerTask)
         }
-    }
-
-    private fun toOldProductDocument(productRecord: KeProductItemStreamRecord): ProductDocument {
-        return ProductDocument(
-            productId = productRecord.productId,
-            title = productRecord.title,
-            parentCategory = productRecord.category.title.trim(),
-            ancestorCategories = productCategoriesToAncestorCategories(productRecord.category),
-            reviewsAmount = productRecord.reviewsAmount,
-            orderAmount = productRecord.orders,
-            rOrdersAmount = null,
-            rating = productRecord.rating.toBigDecimal(),
-            totalAvailableAmount = productRecord.totalAvailableAmount,
-            description = productRecord.description,
-            attributes = productRecord.attributes,
-            tags = productRecord.tags,
-            split = productRecord.skuList.map { productSku: KeItemSkuStreamRecord ->
-                productSplitToMongoDomain(productSku)
-            },
-            seller = SellerDocument(
-                id = productRecord.seller.id,
-                title = productRecord.seller.sellerTitle,
-                link = productRecord.seller.sellerLink,
-                description = productRecord.seller.description,
-                rating = productRecord.seller.rating.toBigDecimal(),
-                sellerAccountId = productRecord.seller.accountId,
-                contacts = productRecord.seller.contacts.map { ProductContactDocument(it.type, it.value) }
-            ),
-        )
-    }
-
-    private fun productSplitToMongoDomain(productSku: KeItemSkuStreamRecord): ProductSplitDocument {
-        return ProductSplitDocument(
-            id = productSku.skuId,
-            availableAmount = productSku.availableAmount,
-            fullPrice = productSku.fullPrice?.toBigDecimal(),
-            purchasePrice = productSku.purchasePrice.toBigDecimal(),
-            characteristics = productSku.characteristics.map {
-                ProductSplitCharacteristicDocument(it.title, it.title, it.value)
-            },
-            photoKey = productSku.photoKey
-        )
-    }
-
-    private fun productCategoriesToAncestorCategories(productCategory: KeProductCategoryStreamRecord): List<String> {
-        val ancestorCategories: MutableList<String> = ArrayList()
-        var currentCategory: KeProductCategoryStreamRecord? = productCategory
-        while (currentCategory != null) {
-            ancestorCategories.add(currentCategory.title.trim())
-            currentCategory = currentCategory.parent
-        }
-
-        return ancestorCategories
     }
 }
