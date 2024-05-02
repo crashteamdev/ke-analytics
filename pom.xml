@@ -145,7 +145,7 @@
         <dependency>
             <groupId>dev.crashteam</groupId>
             <artifactId>liquibase-clickhouse</artifactId>
-            <version>0.8.0</version>
+            <version>0.8.1</version>
         </dependency>
         <!--Deprecated-->
         <dependency>
