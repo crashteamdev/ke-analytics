@@ -84,6 +84,11 @@
             <artifactId>grpc-server-spring-boot-starter</artifactId>
             <version>${grpc-server.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-properties-migrator</artifactId>
+            <scope>runtime</scope>
+        </dependency>
 
         <!-- Third party -->
         <dependency>
