@@ -38,7 +38,8 @@ spring:
       port: 25061
       username: default
       password: password
-      ssl: false
+      ssl:
+        enabled: false
   cache:
     cache-names:
       - ke-products-info
