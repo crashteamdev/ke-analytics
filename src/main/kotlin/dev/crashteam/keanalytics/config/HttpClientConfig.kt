@@ -2,6 +2,7 @@ package dev.crashteam.keanalytics.config
 
 import org.apache.hc.client5.http.classic.HttpClient
 import org.apache.hc.client5.http.config.ConnectionConfig
+import org.apache.hc.client5.http.config.RequestConfig
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder
 import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactoryBuilder
 import org.apache.hc.core5.util.TimeValue
@@ -33,7 +34,7 @@ class HttpClientConfig {
 
     @Bean
     fun simpleHttpClient(sslFactory: org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory): HttpClient {
-        val requestConfig = org.apache.hc.client5.http.config.RequestConfig.custom()
+        val requestConfig = RequestConfig.custom()
             .setConnectionRequestTimeout(Timeout.ofMilliseconds(REQUEST_TIMEOUT))
             .setConnectTimeout(Timeout.ofMilliseconds(CONNECT_TIMEOUT))
             .setCookieSpec(CookieSpecs.STANDARD)
@@ -52,7 +53,7 @@ class HttpClientConfig {
             .evictExpiredConnections()
             .evictIdleConnections(TimeValue.ofSeconds(CLOSE_IDLE_CONNECTION_WAIT_TIME_SECS))
             .setDefaultRequestConfig(
-                org.apache.hc.client5.http.config.RequestConfig.custom().setCircularRedirectsAllowed(true).build()
+                RequestConfig.custom().setCircularRedirectsAllowed(true).build()
             )
             .disableCookieManagement()
             .build()
