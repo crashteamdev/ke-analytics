@@ -29,11 +29,11 @@ class CategoryAnalyticsService(
     private val conversionService: ConversionService,
 ) {
 
-    @Cacheable(
-        value = [RedisConfig.KE_CATEGORY_ANALYTICS],
-        key = "{#datePeriod, #sortBy}",
-        unless = "#result?.isEmpty()"
-    )
+//    @Cacheable(
+//        value = [RedisConfig.KE_CATEGORY_ANALYTICS],
+//        key = "{#datePeriod, #sortBy}",
+//        unless = "#result?.isEmpty()"
+//    )
     suspend fun getRootCategoryAnalytics(
         datePeriod: DatePeriod,
         sortBy: SortBy? = null
@@ -74,11 +74,11 @@ class CategoryAnalyticsService(
         }
     }
 
-    @Cacheable(
-        value = [RedisConfig.KE_CATEGORY_ANALYTICS],
-        key = "{#categoryId, #datePeriod, #sortBy}",
-        unless = "#result?.isEmpty()"
-    )
+//    @Cacheable(
+//        value = [RedisConfig.KE_CATEGORY_ANALYTICS],
+//        key = "{#categoryId, #datePeriod, #sortBy}",
+//        unless = "#result?.isEmpty()"
+//    )
     suspend fun getCategoryAnalytics(
         categoryId: Long,
         datePeriod: DatePeriod,
