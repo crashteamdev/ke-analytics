@@ -1,6 +1,5 @@
 package dev.crashteam.keanalytics.service
 
-import dev.crashteam.keanalytics.config.RedisConfig
 import dev.crashteam.keanalytics.extensions.toLocalDates
 import dev.crashteam.keanalytics.extensions.toMoney
 import dev.crashteam.keanalytics.extensions.toRepositoryDomain
@@ -15,7 +14,6 @@ import dev.crashteam.mp.base.Sort
 import dev.crashteam.mp.external.analytics.category.ProductAnalytics
 import kotlinx.coroutines.*
 import mu.KotlinLogging
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.core.convert.ConversionService
 import org.springframework.stereotype.Service
 import java.math.RoundingMode
@@ -29,11 +27,6 @@ class CategoryAnalyticsService(
     private val conversionService: ConversionService,
 ) {
 
-//    @Cacheable(
-//        value = [RedisConfig.KE_CATEGORY_ANALYTICS],
-//        key = "{#datePeriod, #sortBy}",
-//        unless = "#result?.isEmpty()"
-//    )
     suspend fun getRootCategoryAnalytics(
         datePeriod: DatePeriod,
         sortBy: SortBy? = null
@@ -74,11 +67,6 @@ class CategoryAnalyticsService(
         }
     }
 
-//    @Cacheable(
-//        value = [RedisConfig.KE_CATEGORY_ANALYTICS],
-//        key = "{#categoryId, #datePeriod, #sortBy}",
-//        unless = "#result?.isEmpty()"
-//    )
     suspend fun getCategoryAnalytics(
         categoryId: Long,
         datePeriod: DatePeriod,

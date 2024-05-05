@@ -9,6 +9,7 @@ import dev.crashteam.keanalytics.client.kazanexpress.model.ProductResponse
 import dev.crashteam.keanalytics.config.properties.RedisProperties
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryOverallInfo
 import dev.crashteam.keanalytics.repository.redis.ApiKeyUserSessionInfo
+import dev.crashteam.keanalytics.service.model.CategoryAnalyticsCacheableWrapper
 import dev.crashteam.keanalytics.service.model.SellerOverallInfo
 import dev.crashteam.mp.external.analytics.category.GetCategoryAnalyticsResponse
 import mu.KotlinLogging
@@ -103,9 +104,9 @@ class RedisConfig(
             configurationMap[SELLER_OVERALL_INFO_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeValuesWith(redisJsonSerializer(SellerOverallInfo::class.java))
                 .entryTtl(Duration.ofSeconds(21600))
-//            configurationMap[KE_CATEGORY_ANALYTICS] = RedisCacheConfiguration.defaultCacheConfig()
-//                .serializeValuesWith(redisJsonSerializer(List::class.java))
-//                .entryTtl(Duration.ofDays(1))
+            configurationMap[EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
+                .serializeValuesWith(redisJsonSerializer(CategoryAnalyticsCacheableWrapper::class.java))
+                .entryTtl(Duration.ofDays(1))
             builder.withInitialCacheConfigurations(configurationMap)
         }
     }
@@ -247,6 +248,6 @@ class RedisConfig(
         const val KE_CLIENT_CACHE_NAME = "ke-products-info"
         const val CATEGORY_OVERALL_INFO_CACHE = "ke-category-overall-info"
         const val SELLER_OVERALL_INFO_CACHE_NAME = "ke-seller-overall-info"
-//        const val KE_CATEGORY_ANALYTICS = "ke-category-analytics"
+        const val EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME = "mm-external-category-analytics"
     }
 }
