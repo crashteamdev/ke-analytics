@@ -1,9 +1,7 @@
 package dev.crashteam.keanalytics.config.properties
 
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.boot.context.properties.ConstructorBinding
 
-@ConstructorBinding
 @ConfigurationProperties(prefix = "redis")
 data class RedisProperties(
     val stream: RedisStreamProperty

@@ -25,6 +25,7 @@ import dev.crashteam.keanalytics.repository.mongo.pageable.PageResult
 import dev.crashteam.keanalytics.service.CategoryService
 import dev.crashteam.keanalytics.service.ProductService
 import dev.crashteam.keanalytics.service.UserRestrictionService
+import jakarta.validation.Valid
 import org.springframework.core.convert.ConversionService
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.*
@@ -38,7 +39,6 @@ import java.math.RoundingMode
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.*
-import javax.validation.Valid
 
 private val log = KotlinLogging.logger {}
 

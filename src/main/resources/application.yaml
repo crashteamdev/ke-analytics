@@ -33,12 +33,13 @@ spring:
   data:
     mongodb:
       uri: mongodb://${MONGO_USER:kazanex}:${MONGO_PASSWORD:my5053strongPassword}@${MONGO_HOST:77.37.140.106}/${MONGO_DATABASE:kazanex}?authSource=kazanex&replicaSet=${MONGO_REPLICASET:marketdb}&tls=true&maxPoolSize=200
-  redis:
-    host: marketdb-redis-do-user-9153772-0.b.db.ondigitalocean.com
-    port: 25061
-    username: default
-    password: password
-    ssl: false
+    redis:
+      host: marketdb-redis-do-user-9153772-0.b.db.ondigitalocean.com
+      port: 25061
+      username: default
+      password: password
+      ssl:
+        enabled: false
   cache:
     cache-names:
       - ke-products-info

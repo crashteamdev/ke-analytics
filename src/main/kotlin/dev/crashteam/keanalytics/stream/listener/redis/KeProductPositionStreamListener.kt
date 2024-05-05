@@ -24,7 +24,6 @@ private val log = KotlinLogging.logger {}
 @Component
 class KeProductPositionStreamListener(
     private val objectMapper: ObjectMapper,
-    private val productPositionRepository: ProductPositionRepository,
     private val chProductPositionRepository: CHProductPositionRepository,
 ) : BatchStreamListener<String, ObjectRecord<String, String>> {
 
@@ -33,15 +32,10 @@ class KeProductPositionStreamListener(
             objectMapper.readValue<KeProductPositionStreamRecord>(it.value)
         }
         coroutineScope {
-            val oldSaveProductPositionTask = async {
-                for (productPositionStreamRecord in productPositionStreamRecords) {
-                    oldSaveProductPositionRecord(productPositionStreamRecord)
-                }
-            }
             val saveProductPositionTask = async {
                 saveProductPositionRecords(productPositionStreamRecords)
             }
-            awaitAll(oldSaveProductPositionTask, saveProductPositionTask)
+            awaitAll(saveProductPositionTask)
         }
     }
 
@@ -62,38 +56,6 @@ class KeProductPositionStreamListener(
             chProductPositionRepository.saveProductsPosition(chProductPositions)
         } catch (e: Exception) {
             log.error(e) { "Exception during handle position message. message=${productPositionStreamRecords}" }
-        }
-    }
-
-    private fun oldSaveProductPositionRecord(productPositionStreamRecord: KeProductPositionStreamRecord) {
-        try {
-            log.info {
-                "[OLD] Consume product position record from stream." +
-                        " productId=${productPositionStreamRecord.productId};" +
-                        " skuId=${productPositionStreamRecord.skuId};" +
-                        " position=${productPositionStreamRecord.position}"
-            }
-            val productPositionTSDocument = ProductPositionTSDocument(
-                position = productPositionStreamRecord.position,
-                metadata = ProductPositionMetadata(
-                    id = ProductPositionId(
-                        productId = productPositionStreamRecord.productId,
-                        skuId = productPositionStreamRecord.skuId
-                    ),
-                    categoryId = productPositionStreamRecord.categoryId
-                ),
-                timestamp = Instant.ofEpochMilli(productPositionStreamRecord.time)
-            )
-            productPositionRepository.save(productPositionTSDocument).doOnSuccess {
-                log.info {
-                    "Successfully saved product position. " + "" +
-                            " productId=${productPositionStreamRecord.productId};" +
-                            " skuId=${productPositionStreamRecord.skuId};" +
-                            " position=${productPositionStreamRecord.position}"
-                }
-            }.subscribe()
-        } catch (e: Exception) {
-            log.error(e) { "[OLD] Exception during handle position message. message=${productPositionStreamRecord}" }
         }
     }
 }
