@@ -70,5 +70,4 @@ class ClickhouseConfig {
         return liquibase
     }
 
-
 }
