@@ -104,7 +104,7 @@ class RedisConfig(
                 .serializeValuesWith(redisJsonSerializer(SellerOverallInfo::class.java))
                 .entryTtl(Duration.ofSeconds(21600))
             configurationMap[KE_CATEGORY_ANALYTICS] = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(protobufSerializer { GetCategoryAnalyticsResponse.parseFrom(it) })
+                .serializeValuesWith(redisJsonSerializer(List::class.java))
                 .entryTtl(Duration.ofDays(1))
             builder.withInitialCacheConfigurations(configurationMap)
         }
