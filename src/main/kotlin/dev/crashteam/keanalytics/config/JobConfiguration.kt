@@ -45,12 +45,11 @@ class JobConfiguration(
         }
     }
 
-    private fun aggregateStatsJob(): JobDetailImpl {
-        val jobDetail = JobDetailImpl()
-        jobDetail.key = JobKey(AGGREGATE_STATS_JOB, AGGREGATE_STATS_JOB_GROUP)
-        jobDetail.jobClass = AggregateStatsJob::class.java
-
-        return jobDetail
+    private fun aggregateStatsJob(): JobDetail {
+        return JobBuilder.newJob(AggregateStatsJob::class.java)
+            .withIdentity(JobKey(AGGREGATE_STATS_JOB, AGGREGATE_STATS_JOB_GROUP))
+            .requestRecovery()
+            .build()
     }
 
     private fun triggerAggregateStatsJob(): CronTrigger {
