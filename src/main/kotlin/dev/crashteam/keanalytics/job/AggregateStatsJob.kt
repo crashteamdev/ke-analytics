@@ -12,6 +12,7 @@ import org.quartz.DisallowConcurrentExecution
 import org.quartz.Job
 import org.quartz.JobExecutionContext
 import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.retry.support.RetryTemplate
 
 private val log = KotlinLogging.logger {}
 
@@ -24,34 +25,32 @@ class AggregateStatsJob : Job {
 
     private lateinit var chCategoryRepository: CHCategoryRepository
 
+    private lateinit var retryTemplate: RetryTemplate
+
     override fun execute(context: JobExecutionContext) {
         val applicationContext = context.getApplicationContext()
         jdbcTemplate = applicationContext.getBean("clickHouseJdbcTemplate") as JdbcTemplate
         chCategoryRepository = applicationContext.getBean(CHCategoryRepository::class.java)
         aggregateJobService = applicationContext.getBean(AggregateJobService::class.java)
+        retryTemplate = applicationContext.getBean(RetryTemplate::class.java)
         val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)!!
         runBlocking {
-            val firstTask = async {
-                try {
-                    insertAggregateStats(
-                        rootCategoryIds,
-                        { statType -> getTableNameForAggCategoryProductsStatsByStatType(statType) }
-                    ) { rootCategoryId, statType -> buildCategoryProductsAnalyticsStatSql(rootCategoryId, statType) }
-                } catch (e: Exception) {
-                    log.error(e) { "Can't insert aggregate stats for category products" }
-                }
+            try {
+                insertAggregateStats(
+                    rootCategoryIds,
+                    { statType -> getTableNameForAggCategoryProductsStatsByStatType(statType) }
+                ) { rootCategoryId, statType -> buildCategoryProductsAnalyticsStatSql(rootCategoryId, statType) }
+            } catch (e: Exception) {
+                log.error(e) { "Can't insert aggregate stats for category products" }
             }
-            val secondTask = async {
-                try {
-                    insertAggregateStats(
-                        rootCategoryIds,
-                        { statType -> getTableNameForAggCategoryStatsByStatType(statType) },
-                        { rootCategoryId, statType -> buildInsertCategoryAnalyticsStatSql(rootCategoryId, statType) })
-                } catch (e: Exception) {
-                    log.error(e) { "Can't insert aggregate stats for category" }
-                }
+            try {
+                insertAggregateStats(
+                    rootCategoryIds,
+                    { statType -> getTableNameForAggCategoryStatsByStatType(statType) },
+                    { rootCategoryId, statType -> buildInsertCategoryAnalyticsStatSql(rootCategoryId, statType) })
+            } catch (e: Exception) {
+                log.error(e) { "Can't insert aggregate stats for category" }
             }
-            awaitAll(firstTask, secondTask)
         }
     }
 
@@ -69,7 +68,9 @@ class AggregateStatsJob : Job {
                     val insertStatSql = buildSqlBlock(rootCategoryId, statType)
                     log.debug { "Insert aggregate table sql: $insertStatSql" }
                     log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
-                    jdbcTemplate.execute(insertStatSql)
+                    retryTemplate.execute<Unit, Exception> {
+                        jdbcTemplate.execute(insertStatSql)
+                    }
                     aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
                 }
             }
