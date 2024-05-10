@@ -30,7 +30,7 @@ class AggregateJobService(
         reactiveRedisTemplate.opsForValue().set(key, 1).awaitSingleOrNull()
 
         val now = LocalDateTime.now().atOffset(ZoneOffset.UTC)
-        val midnight = now.plusDays(1).with(LocalTime.MIDNIGHT)
+        val midnight = now.plusDays(1).with(LocalTime.MIDNIGHT).minusMinutes(30)
         val ttlSeconds = Duration.between(now, midnight).seconds
         reactiveRedisTemplate.expire(key, Duration.ofSeconds(ttlSeconds)).awaitSingleOrNull()
     }
