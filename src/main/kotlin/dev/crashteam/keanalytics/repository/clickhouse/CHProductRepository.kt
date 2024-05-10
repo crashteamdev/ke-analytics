@@ -218,7 +218,7 @@ class CHProductRepository(
                                    daily_order_amount + (total_orders_amount_min - max_total_order_amount_delta),
                                    daily_order_amount)                                                                      AS order_amount_with_gaps,
                            if(order_amount_with_gaps < 0, 0, order_amount_with_gaps)                                        AS order_amount,
-                           quantileMerge(median_price)  / 100                                                               AS purchase_price,
+                           quantileMerge(median_price) / 100                                                                AS purchase_price,
                            order_amount * purchase_price                                                                    AS revenue
                     FROM kazanex.ke_product_daily_sales
                     WHERE seller_link = ?
@@ -228,10 +228,10 @@ class CHProductRepository(
             )
 
             SELECT sum(order_amount_sum)                                         AS order_amount,
-                   sum(revenue) / 100                                            AS revenue,
+                   sum(revenue)                                                  AS revenue,
                    count(product_id)                                             AS product_count,
                    countIf(order_amount_sum > 0)                                 AS product_with_sales,
-                   round((sum(avg_price) / 100) / countIf(order_amount_sum > 0)) AS avg_price,
+                   round((sum(avg_price)) / countIf(order_amount_sum > 0))       AS avg_price,
                    countIf(order_amount_sum <= 0)                                AS product_without_sales
             FROM (
                      SELECT product_id,
