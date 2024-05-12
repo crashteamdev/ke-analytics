@@ -68,8 +68,13 @@ class AggregateStatsJob : Job {
                     val insertStatSql = buildSqlBlock(rootCategoryId, statType)
                     log.debug { "Insert aggregate table sql: $insertStatSql" }
                     log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
-                    retryTemplate.execute<Unit, Exception> {
-                        jdbcTemplate.execute(insertStatSql)
+                    try {
+                        retryTemplate.execute<Unit, Exception> {
+                            jdbcTemplate.execute(insertStatSql)
+                        }
+                    } catch (e: Exception) {
+                        log.error(e) { "Failed to aggregate categoryId=$rootCategoryId for table `$tableName`" }
+                        continue
                     }
                     aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
                 }
@@ -140,9 +145,6 @@ class AggregateStatsJob : Job {
     }
 
     companion object {
-        private const val MAX_DATE_AGG_STATS_SQL = """
-            SELECT max(date) AS max_date FROM %s
-        """
         private const val INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL = """
             INSERT INTO %s
             SELECT date,
@@ -157,24 +159,24 @@ class AggregateStatsJob : Job {
                    anyLastState(photo_key)             AS photo_key,
                    anyLastState(last_rating)           AS rating
             FROM (
-                     SELECT latest_category_id,
+                     SELECT date,
                             product_id,
-                            title,
-                            toInt64(total_orders_amount)                                                                 AS total_orders_amount,
-                            toInt64(purchase_price)                                                                      AS purchase_price,
-                            photo_key,
-                            last_value(rating) OVER (PARTITION BY latest_category_id, product_id ORDER BY timestamp ASC) AS last_rating,
-                            last_value(reviews_amount)
-                                       OVER (PARTITION BY latest_category_id, product_id ORDER BY timestamp ASC)         AS last_reviews_amount,
-                            last_value(total_available_amount)
-                                       OVER (PARTITION BY latest_category_id, product_id ORDER BY timestamp ASC)         AS last_available_amount
-                     FROM kazanex.product
+                            anyLast(category_id)                      AS category_id,
+                            anyLastMerge(title)                       AS title,
+                            toInt64(maxMerge(max_total_order_amount)) AS total_orders_amount,
+                            toInt64(quantileMerge(median_price))      AS purchase_price,
+                            anyLastMerge(photo_key)                   AS photo_key,
+                            maxMerge(rating)                          AS last_rating,
+                            anyLastMerge(reviews_amount)              AS last_reviews_amount,
+                            minMerge(min_available_amount)            AS last_available_amount
+                     FROM kazanex.ke_product_daily_sales
                      WHERE %s
-                     AND latest_category_id IN (
-                         if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', %s, 0)) > 0,
-                            dictGetDescendants('kazanex.categories_hierarchical_dictionary', %s, 0),
+                     AND ke_product_daily_sales.category_id IN (
+                         if(length(dictGetDescendants('uzum.categories_hierarchical_dictionary', %s, 0)) > 0,
+                            dictGetDescendants('uzum.categories_hierarchical_dictionary', %s, 0),
                             array(%s))
                          )
+                     GROUP BY product_id, date
                      )
             GROUP BY category_id, product_id, toStartOfDay(now()) as date
         """
