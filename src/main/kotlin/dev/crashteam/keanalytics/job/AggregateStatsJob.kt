@@ -172,8 +172,8 @@ class AggregateStatsJob : Job {
                      FROM kazanex.ke_product_daily_sales
                      WHERE %s
                      AND ke_product_daily_sales.category_id IN (
-                         if(length(dictGetDescendants('uzum.categories_hierarchical_dictionary', %s, 0)) > 0,
-                            dictGetDescendants('uzum.categories_hierarchical_dictionary', %s, 0),
+                         if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', %s, 0)) > 0,
+                            dictGetDescendants('kazanex.categories_hierarchical_dictionary', %s, 0),
                             array(%s))
                          )
                      GROUP BY product_id, date
