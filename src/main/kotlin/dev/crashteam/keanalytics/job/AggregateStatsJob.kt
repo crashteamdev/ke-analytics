@@ -83,7 +83,7 @@ class AggregateStatsJob : Job {
     }
 
     private fun buildCategoryProductsAnalyticsStatSql(categoryId: Long, statType: StatType): String {
-        val datePredicate = getPeriodFromStatTypeWithColumName("timestamp", statType)
+        val datePredicate = getPeriodFromStatTypeWithColumName("date", statType)
         val tableName = getTableNameForAggCategoryProductsStatsByStatType(statType)
         return INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL.format(
             tableName,
