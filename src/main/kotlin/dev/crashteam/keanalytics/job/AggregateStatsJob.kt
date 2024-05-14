@@ -148,7 +148,7 @@ class AggregateStatsJob : Job {
         private const val INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL = """
             INSERT INTO %s
             SELECT date,
-                   latest_category_id                  AS category_id,
+                   category_id                         AS category_id,
                    product_id,
                    anyLastState(title)                 AS title,
                    maxState(total_orders_amount)       AS max_total_order_amount,
