@@ -4,8 +4,6 @@ import dev.crashteam.keanalytics.extensions.getApplicationContext
 import dev.crashteam.keanalytics.repository.clickhouse.CHCategoryRepository
 import dev.crashteam.keanalytics.service.AggregateJobService
 import dev.crashteam.keanalytics.service.model.StatType
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.quartz.DisallowConcurrentExecution
@@ -65,20 +63,50 @@ class AggregateStatsJob : Job {
                 val isAlreadyExists =
                     aggregateJobService.checkCategoryAlreadyAggregated(tableName, rootCategoryId, statType)
                 if (!isAlreadyExists) {
-                    val insertStatSql = buildSqlBlock(rootCategoryId, statType)
-                    log.debug { "Insert aggregate table sql: $insertStatSql" }
-                    log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
                     try {
-                        retryTemplate.execute<Unit, Exception> {
-                            jdbcTemplate.execute(insertStatSql)
+                        // Fix two month aggregate case of Clickhouse memory issue
+                        if (statType == StatType.TWO_MONTH) {
+                            insertTwoMonthAggregate(rootCategoryId)
+                        } else {
+                            val insertStatSql = buildSqlBlock(rootCategoryId, statType)
+                            log.debug { "Insert aggregate table sql: $insertStatSql" }
+                            log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
+                            retryTemplate.execute<Unit, Exception> {
+                                jdbcTemplate.execute(insertStatSql)
+                            }
+                            aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
                         }
                     } catch (e: Exception) {
                         log.error(e) { "Failed to aggregate categoryId=$rootCategoryId for table `$tableName`" }
                         continue
                     }
-                    aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
                 }
             }
+        }
+    }
+
+    private fun insertTwoMonthAggregate(categoryId: Long) {
+        val datePredicate = getPeriodFromStatTypeWithColumName("date", StatType.TWO_MONTH)
+        val tableName = getTableNameForAggCategoryProductsStatsByStatType(StatType.TWO_MONTH)
+        val firstInsertSql = INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL.format(
+            tableName,
+            datePredicate + " AND date <= toDate(now()) - 30",
+            categoryId,
+            categoryId,
+            categoryId
+        )
+        val secondInsertSql = INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL.format(
+            tableName,
+            "date >= toDate(now()) - 30",
+            categoryId,
+            categoryId,
+            categoryId
+        )
+        retryTemplate.execute<Unit, Exception> {
+            jdbcTemplate.execute(firstInsertSql)
+        }
+        retryTemplate.execute<Unit, Exception> {
+            jdbcTemplate.execute(secondInsertSql)
         }
     }
 
