@@ -182,7 +182,7 @@ class AggregateStatsJob : Job {
                    maxState(total_orders_amount)       AS max_total_order_amount,
                    minState(total_orders_amount)       AS min_total_order_amount,
                    quantileState(purchase_price)       AS median_price,
-                   sumState(last_available_amount)     AS last_available_amount
+                   sumState(last_available_amount)     AS available_amount_sum,
                    anyLastState(last_reviews_amount)   AS reviews_amount,
                    anyLastState(photo_key)             AS photo_key,
                    anyLastState(last_rating)           AS rating
