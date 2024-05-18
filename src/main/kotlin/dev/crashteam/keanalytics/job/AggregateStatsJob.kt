@@ -182,21 +182,22 @@ class AggregateStatsJob : Job {
                    maxState(total_orders_amount)       AS max_total_order_amount,
                    minState(total_orders_amount)       AS min_total_order_amount,
                    quantileState(purchase_price)       AS median_price,
-                   anyLastState(last_available_amount) AS available_amount,
+                   sumState(last_available_amount)     AS last_available_amount
                    anyLastState(last_reviews_amount)   AS reviews_amount,
                    anyLastState(photo_key)             AS photo_key,
                    anyLastState(last_rating)           AS rating
             FROM (
                      SELECT date,
                             product_id,
-                            anyLast(category_id)                      AS category_id,
-                            anyLastMerge(title)                       AS title,
-                            toInt64(maxMerge(max_total_order_amount)) AS total_orders_amount,
-                            toInt64(quantileMerge(median_price))      AS purchase_price,
-                            anyLastMerge(photo_key)                   AS photo_key,
-                            maxMerge(rating)                          AS last_rating,
-                            anyLastMerge(reviews_amount)              AS last_reviews_amount,
-                            minMerge(min_available_amount)            AS last_available_amount
+                            anyLast(category_id)                                                 AS category_id,
+                            anyLastMerge(title)                                                  AS title,
+                            toInt64(maxMerge(max_total_order_amount))                            AS total_orders_amount,
+                            toInt64(quantileMerge(median_price))                                 AS purchase_price,
+                            anyLastMerge(photo_key)                                              AS photo_key,
+                            maxMerge(rating)                                                     AS last_rating,
+                            anyLastMerge(reviews_amount)                                         AS last_reviews_amount,
+                            last_value(minMerge(min_available_amount))
+                                OVER (PARTITION BY product_id, sku_id ORDER BY date DESC)        AS last_available_amount
                      FROM kazanex.ke_product_daily_sales
                      WHERE %s
                      AND ke_product_daily_sales.category_id IN (
@@ -204,7 +205,7 @@ class AggregateStatsJob : Job {
                             dictGetDescendants('kazanex.categories_hierarchical_dictionary', %s, 0),
                             array(%s))
                          )
-                     GROUP BY product_id, date
+                     GROUP BY product_id, sku_id, date
                      )
             GROUP BY category_id, product_id, toStartOfDay(now()) as date
         """
