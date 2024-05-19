@@ -185,7 +185,7 @@ class AggregateStatsJob : Job {
                    anyLastState(last_reviews_amount)   AS reviews_amount,
                    anyLastState(photo_key)             AS photo_key,
                    anyLastState(last_rating)           AS rating,
-                   sumMerge(last_available_amount)      AS available_amount_sum
+                   sumState(last_available_amount)     AS available_amount_sum
             FROM (
                      SELECT date,
                             product_id,
