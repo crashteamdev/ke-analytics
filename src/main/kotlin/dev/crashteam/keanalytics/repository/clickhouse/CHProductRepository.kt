@@ -388,7 +388,7 @@ class CHProductRepository(
                groupArray(purchase_price / 100) AS price_chart,
                groupArray(revenue / 100)        AS revenue_chart,
                groupArray(final_order_amount)   AS order_chart,
-               groupArray(available_amount)     AS available_chart,
+               groupArray(available_amount_sum) AS available_chart,
                (SELECT min(date) as first_discovered
                 FROM kazanex.ke_product_daily_sales
                 WHERE product_id = ?
@@ -400,7 +400,7 @@ class CHProductRepository(
                         anyLastMerge(title)                                                                              AS title,
                         minMerge(min_total_order_amount)                                                                 AS total_orders_amount_min,
                         maxMerge(max_total_order_amount)                                                                 AS total_orders_amount_max,
-                        minMerge(min_available_amount)                                                                   AS available_amount,
+                        sum(minMerge(min_available_amount)) over (partition by product_id, date order by date)           AS available_amount_sum,
                         total_orders_amount_max - total_orders_amount_min                                                AS daily_order_amount,
                         lagInFrame(total_orders_amount_max)
                                    over (partition by product_id order by date ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING) AS max_total_order_amount_delta,

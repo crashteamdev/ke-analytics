@@ -185,7 +185,7 @@ class AggregateStatsJob : Job {
                    anyLastState(last_reviews_amount)   AS reviews_amount,
                    anyLastState(photo_key)             AS photo_key,
                    anyLastState(last_rating)           AS rating,
-                   sumState(last_available_amount)     AS available_amount_sum
+                   anyLastState(last_available_amount) AS available_amount
             FROM (
                      SELECT date,
                             product_id,
@@ -196,8 +196,8 @@ class AggregateStatsJob : Job {
                             anyLastMerge(photo_key)                                              AS photo_key,
                             maxMerge(rating)                                                     AS last_rating,
                             anyLastMerge(reviews_amount)                                         AS last_reviews_amount,
-                            last_value(minMerge(min_available_amount))
-                                OVER (PARTITION BY product_id, sku_id ORDER BY date DESC)        AS last_available_amount
+                            sum(minMerge(min_available_amount))
+                                over (partition by product_id, date order by date)               AS available_amount_sum
                      FROM kazanex.ke_product_daily_sales
                      WHERE %s
                      AND ke_product_daily_sales.category_id IN (
@@ -206,6 +206,7 @@ class AggregateStatsJob : Job {
                             array(%s))
                          )
                      GROUP BY product_id, sku_id, date
+                     ORDER BY date
                      )
             GROUP BY category_id, product_id, toStartOfDay(now()) as date
         """

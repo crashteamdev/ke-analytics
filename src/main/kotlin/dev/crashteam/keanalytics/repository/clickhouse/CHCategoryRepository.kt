@@ -168,7 +168,7 @@ class CHCategoryRepository(
                    maxMerge(max_total_order_amount) - minMerge(min_total_order_amount) AS order_amount,
                    price * order_amount                                                AS revenue,
                    quantileMerge(median_price) / 100                                   AS price,
-                   sumMerge(available_amount_sum)                                      AS available_amount,
+                   anyLastMerge(available_amount)                                      AS available_amount,
                    anyLastMerge(reviews_amount)                                        AS reviews_amount,
                    anyLastMerge(photo_key)                                             AS photo_key,
                    anyLastMerge(rating)                                                AS rating,
