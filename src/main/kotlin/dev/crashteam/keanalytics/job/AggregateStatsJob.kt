@@ -35,6 +35,7 @@ class AggregateStatsJob : Job {
         runBlocking {
             try {
                 insertAggregateStats(
+                    AggregateType.PRODUCT,
                     rootCategoryIds,
                     { statType -> getTableNameForAggCategoryProductsStatsByStatType(statType) }
                 ) { rootCategoryId, statType -> buildCategoryProductsAnalyticsStatSql(rootCategoryId, statType) }
@@ -43,6 +44,7 @@ class AggregateStatsJob : Job {
             }
             try {
                 insertAggregateStats(
+                    AggregateType.CATEGORY,
                     rootCategoryIds,
                     { statType -> getTableNameForAggCategoryStatsByStatType(statType) },
                     { rootCategoryId, statType -> buildInsertCategoryAnalyticsStatSql(rootCategoryId, statType) })
@@ -53,6 +55,7 @@ class AggregateStatsJob : Job {
     }
 
     private fun insertAggregateStats(
+        aggregateType: AggregateType,
         rootCategoryIds: List<Long>,
         tableDetermineBlock: (statType: StatType) -> String,
         buildSqlBlock: (rootCategoryId: Long, statType: StatType) -> String,
@@ -65,7 +68,7 @@ class AggregateStatsJob : Job {
                 if (!isAlreadyExists) {
                     try {
                         // Fix two month aggregate case of Clickhouse memory issue
-                        if (statType == StatType.TWO_MONTH) {
+                        if (aggregateType == AggregateType.CATEGORY && statType == StatType.TWO_MONTH) {
                             insertTwoMonthAggregate(rootCategoryId)
                         } else {
                             val insertStatSql = buildSqlBlock(rootCategoryId, statType)
@@ -75,6 +78,7 @@ class AggregateStatsJob : Job {
                                 jdbcTemplate.execute(insertStatSql)
                             }
                             aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
+                            Thread.sleep(60000)
                         }
                     } catch (e: Exception) {
                         log.error(e) { "Failed to aggregate categoryId=$rootCategoryId for table `$tableName`" }
@@ -342,5 +346,9 @@ class AggregateStatsJob : Job {
             ) AS p ON
                 c.category_id = p.category_id
         """
+    }
+
+    private enum class AggregateType {
+        CATEGORY, PRODUCT
     }
 }
