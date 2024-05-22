@@ -68,7 +68,7 @@ class AggregateStatsJob : Job {
                 if (!isAlreadyExists) {
                     try {
                         // Fix two month aggregate case of Clickhouse memory issue
-                        if (aggregateType == AggregateType.CATEGORY && statType == StatType.TWO_MONTH) {
+                        if (aggregateType == AggregateType.PRODUCT && statType == StatType.TWO_MONTH) {
                             insertTwoMonthAggregate(rootCategoryId)
                         } else {
                             val insertStatSql = buildSqlBlock(rootCategoryId, statType)
@@ -78,7 +78,7 @@ class AggregateStatsJob : Job {
                                 jdbcTemplate.execute(insertStatSql)
                             }
                             aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
-                            Thread.sleep(60000)
+                            Thread.sleep(90000)
                         }
                     } catch (e: Exception) {
                         log.error(e) { "Failed to aggregate categoryId=$rootCategoryId for table `$tableName`" }
