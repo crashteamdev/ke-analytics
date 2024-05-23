@@ -69,7 +69,7 @@ class AggregateStatsJob : Job {
                     try {
                         // Fix two month aggregate case of Clickhouse memory issue
                         if (aggregateType == AggregateType.PRODUCT && statType == StatType.TWO_MONTH) {
-                            insertTwoMonthAggregate(rootCategoryId)
+                            insertProductTwoMonthAggregate(rootCategoryId)
                         } else {
                             val insertStatSql = buildSqlBlock(rootCategoryId, statType)
                             log.debug { "Insert aggregate table sql: $insertStatSql" }
@@ -78,7 +78,6 @@ class AggregateStatsJob : Job {
                                 jdbcTemplate.execute(insertStatSql)
                             }
                             aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
-                            Thread.sleep(90000)
                         }
                     } catch (e: Exception) {
                         log.error(e) { "Failed to aggregate categoryId=$rootCategoryId for table `$tableName`" }
@@ -89,7 +88,7 @@ class AggregateStatsJob : Job {
         }
     }
 
-    private fun insertTwoMonthAggregate(categoryId: Long) {
+    private fun insertProductTwoMonthAggregate(categoryId: Long) {
         val datePredicate = getPeriodFromStatTypeWithColumName("date", StatType.TWO_MONTH)
         val tableName = getTableNameForAggCategoryProductsStatsByStatType(StatType.TWO_MONTH)
         val firstInsertSql = INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL.format(
