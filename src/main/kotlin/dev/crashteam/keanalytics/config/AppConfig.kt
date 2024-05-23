@@ -38,7 +38,7 @@ class AppConfig {
         exponentialBackOffPolicy.maxInterval = 60000L
         retryTemplate.setBackOffPolicy(exponentialBackOffPolicy)
         val retryPolicy = SimpleRetryPolicy()
-        retryPolicy.maxAttempts = 10
+        retryPolicy.maxAttempts = 30
         retryTemplate.setRetryPolicy(retryPolicy)
         retryTemplate.setListeners(arrayOf(LogRetryListener()))
         return retryTemplate
