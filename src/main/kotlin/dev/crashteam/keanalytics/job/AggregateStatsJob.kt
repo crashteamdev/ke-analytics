@@ -67,9 +67,9 @@ class AggregateStatsJob : Job {
                     aggregateJobService.checkCategoryAlreadyAggregated(tableName, rootCategoryId, statType)
                 if (!isAlreadyExists) {
                     try {
-                        // Fix two month aggregate case of Clickhouse memory issue
-                        if (aggregateType == AggregateType.PRODUCT && statType == StatType.TWO_MONTH) {
-                            insertProductTwoMonthAggregate(rootCategoryId)
+                        // Fix product aggregate case of Clickhouse memory issue
+                        if (aggregateType == AggregateType.PRODUCT) {
+                            insertProductAggregate(rootCategoryId, statType)
                         } else {
                             val insertStatSql = buildSqlBlock(rootCategoryId, statType)
                             log.debug { "Insert aggregate table sql: $insertStatSql" }
@@ -88,19 +88,20 @@ class AggregateStatsJob : Job {
         }
     }
 
-    private fun insertProductTwoMonthAggregate(categoryId: Long) {
-        val datePredicate = getPeriodFromStatTypeWithColumName("date", StatType.TWO_MONTH)
-        val tableName = getTableNameForAggCategoryProductsStatsByStatType(StatType.TWO_MONTH)
+    private fun insertProductAggregate(categoryId: Long, statType: StatType) {
+        val firstPeriod = "date >= toDate(now()) - ${statType.days} AND date <= toDate(now()) - ${statType.days / 2}"
+        val secondPeriod = "date >= toDate(now()) - ${statType.days / 2}"
+        val tableName = getTableNameForAggCategoryProductsStatsByStatType(statType)
         val firstInsertSql = INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL.format(
             tableName,
-            datePredicate + " AND date <= toDate(now()) - 30",
+            firstPeriod,
             categoryId,
             categoryId,
             categoryId
         )
         val secondInsertSql = INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL.format(
             tableName,
-            "date >= toDate(now()) - 30",
+            secondPeriod,
             categoryId,
             categoryId,
             categoryId
@@ -162,17 +163,17 @@ class AggregateStatsJob : Job {
     }
 
     private fun getPeriodFromStatTypeWithColumName(dateColumnName: String, statType: StatType) = when (statType) {
-        StatType.WEEK -> "$dateColumnName >= toDate(now()) - 7"
-        StatType.TWO_WEEK -> "$dateColumnName >= toDate(now()) - 14"
-        StatType.MONTH -> "$dateColumnName >= toDate(now()) - 30"
-        StatType.TWO_MONTH -> "$dateColumnName >= toDate(now()) - 60"
+        StatType.WEEK -> "$dateColumnName >= toDate(now()) - ${StatType.WEEK.days}"
+        StatType.TWO_WEEK -> "$dateColumnName >= toDate(now()) - ${StatType.TWO_WEEK.days}"
+        StatType.MONTH -> "$dateColumnName >= toDate(now()) - ${StatType.MONTH.days}"
+        StatType.TWO_MONTH -> "$dateColumnName >= toDate(now()) - ${StatType.TWO_MONTH.days}"
     }
 
     private fun getPeriodFromStatType(statType: StatType) = when (statType) {
-        StatType.WEEK -> "toDate(now()) - 7"
-        StatType.TWO_WEEK -> "toDate(now()) - 14"
-        StatType.MONTH -> "toDate(now()) - 30"
-        StatType.TWO_MONTH -> "toDate(now()) - 60"
+        StatType.WEEK -> "toDate(now()) - ${StatType.WEEK.days}"
+        StatType.TWO_WEEK -> "toDate(now()) - ${StatType.TWO_WEEK.days}"
+        StatType.MONTH -> "toDate(now()) - ${StatType.MONTH.days}"
+        StatType.TWO_MONTH -> "toDate(now()) - ${StatType.TWO_MONTH.days}"
     }
 
     companion object {
