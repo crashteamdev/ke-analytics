@@ -89,6 +89,7 @@ class AggregateStatsJob : Job {
     }
 
     private fun insertProductAggregate(categoryId: Long, statType: StatType) {
+        log.info { "Execute product aggregate for category=$categoryId; statsType=$statType" }
         val firstPeriod = "date >= toDate(now()) - ${statType.days} AND date <= toDate(now()) - ${statType.days / 2}"
         val secondPeriod = "date >= toDate(now()) - ${statType.days / 2}"
         val tableName = getTableNameForAggCategoryProductsStatsByStatType(statType)
@@ -107,9 +108,11 @@ class AggregateStatsJob : Job {
             categoryId
         )
         retryTemplate.execute<Unit, Exception> {
+            log.info { "Execute first part product aggregate category=$categoryId; statsType=$statType" }
             jdbcTemplate.execute(firstInsertSql)
         }
         retryTemplate.execute<Unit, Exception> {
+            log.info { "Execute second part product aggregate category=$categoryId; statsType=$statType" }
             jdbcTemplate.execute(secondInsertSql)
         }
     }
