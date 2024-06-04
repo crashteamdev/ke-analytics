@@ -4,8 +4,6 @@ import dev.crashteam.keanalytics.extensions.getApplicationContext
 import dev.crashteam.keanalytics.repository.clickhouse.CHCategoryRepository
 import dev.crashteam.keanalytics.service.AggregateJobService
 import dev.crashteam.keanalytics.service.model.StatType
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.quartz.DisallowConcurrentExecution
@@ -37,6 +35,7 @@ class AggregateStatsJob : Job {
         runBlocking {
             try {
                 insertAggregateStats(
+                    AggregateType.PRODUCT,
                     rootCategoryIds,
                     { statType -> getTableNameForAggCategoryProductsStatsByStatType(statType) }
                 ) { rootCategoryId, statType -> buildCategoryProductsAnalyticsStatSql(rootCategoryId, statType) }
@@ -45,6 +44,7 @@ class AggregateStatsJob : Job {
             }
             try {
                 insertAggregateStats(
+                    AggregateType.CATEGORY,
                     rootCategoryIds,
                     { statType -> getTableNameForAggCategoryStatsByStatType(statType) },
                     { rootCategoryId, statType -> buildInsertCategoryAnalyticsStatSql(rootCategoryId, statType) })
@@ -55,6 +55,7 @@ class AggregateStatsJob : Job {
     }
 
     private fun insertAggregateStats(
+        aggregateType: AggregateType,
         rootCategoryIds: List<Long>,
         tableDetermineBlock: (statType: StatType) -> String,
         buildSqlBlock: (rootCategoryId: Long, statType: StatType) -> String,
@@ -65,20 +66,54 @@ class AggregateStatsJob : Job {
                 val isAlreadyExists =
                     aggregateJobService.checkCategoryAlreadyAggregated(tableName, rootCategoryId, statType)
                 if (!isAlreadyExists) {
-                    val insertStatSql = buildSqlBlock(rootCategoryId, statType)
-                    log.debug { "Insert aggregate table sql: $insertStatSql" }
-                    log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
                     try {
-                        retryTemplate.execute<Unit, Exception> {
-                            jdbcTemplate.execute(insertStatSql)
+                        // Fix product aggregate case of Clickhouse memory issue
+                        if (aggregateType == AggregateType.PRODUCT) {
+                            insertProductAggregate(rootCategoryId, statType)
+                        } else {
+                            val insertStatSql = buildSqlBlock(rootCategoryId, statType)
+                            log.debug { "Insert aggregate table sql: $insertStatSql" }
+                            log.info { "Execute insert aggregation stats for table `$tableName`. categoryId=$rootCategoryId" }
+                            retryTemplate.execute<Unit, Exception> {
+                                jdbcTemplate.execute(insertStatSql)
+                            }
+                            aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
                         }
                     } catch (e: Exception) {
                         log.error(e) { "Failed to aggregate categoryId=$rootCategoryId for table `$tableName`" }
                         continue
                     }
-                    aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
                 }
             }
+        }
+    }
+
+    private fun insertProductAggregate(categoryId: Long, statType: StatType) {
+        log.info { "Execute product aggregate for category=$categoryId; statsType=$statType" }
+        val firstPeriod = "date >= toDate(now()) - ${statType.days} AND date <= toDate(now()) - ${statType.days / 2}"
+        val secondPeriod = "date >= toDate(now()) - ${statType.days / 2}"
+        val tableName = getTableNameForAggCategoryProductsStatsByStatType(statType)
+        val firstInsertSql = INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL.format(
+            tableName,
+            firstPeriod,
+            categoryId,
+            categoryId,
+            categoryId
+        )
+        val secondInsertSql = INSERT_AGG_CATEGORY_PRODUCTS_STATS_SQL.format(
+            tableName,
+            secondPeriod,
+            categoryId,
+            categoryId,
+            categoryId
+        )
+        retryTemplate.execute<Unit, Exception> {
+            log.info { "Execute first part product aggregate category=$categoryId; statsType=$statType" }
+            jdbcTemplate.execute(firstInsertSql)
+        }
+        retryTemplate.execute<Unit, Exception> {
+            log.info { "Execute second part product aggregate category=$categoryId; statsType=$statType" }
+            jdbcTemplate.execute(secondInsertSql)
         }
     }
 
@@ -131,17 +166,17 @@ class AggregateStatsJob : Job {
     }
 
     private fun getPeriodFromStatTypeWithColumName(dateColumnName: String, statType: StatType) = when (statType) {
-        StatType.WEEK -> "$dateColumnName >= toDate(now()) - 7"
-        StatType.TWO_WEEK -> "$dateColumnName >= toDate(now()) - 14"
-        StatType.MONTH -> "$dateColumnName >= toDate(now()) - 30"
-        StatType.TWO_MONTH -> "$dateColumnName >= toDate(now()) - 60"
+        StatType.WEEK -> "$dateColumnName >= toDate(now()) - ${StatType.WEEK.days}"
+        StatType.TWO_WEEK -> "$dateColumnName >= toDate(now()) - ${StatType.TWO_WEEK.days}"
+        StatType.MONTH -> "$dateColumnName >= toDate(now()) - ${StatType.MONTH.days}"
+        StatType.TWO_MONTH -> "$dateColumnName >= toDate(now()) - ${StatType.TWO_MONTH.days}"
     }
 
     private fun getPeriodFromStatType(statType: StatType) = when (statType) {
-        StatType.WEEK -> "toDate(now()) - 7"
-        StatType.TWO_WEEK -> "toDate(now()) - 14"
-        StatType.MONTH -> "toDate(now()) - 30"
-        StatType.TWO_MONTH -> "toDate(now()) - 60"
+        StatType.WEEK -> "toDate(now()) - ${StatType.WEEK.days}"
+        StatType.TWO_WEEK -> "toDate(now()) - ${StatType.TWO_WEEK.days}"
+        StatType.MONTH -> "toDate(now()) - ${StatType.MONTH.days}"
+        StatType.TWO_MONTH -> "toDate(now()) - ${StatType.TWO_MONTH.days}"
     }
 
     companion object {
@@ -154,21 +189,22 @@ class AggregateStatsJob : Job {
                    maxState(total_orders_amount)       AS max_total_order_amount,
                    minState(total_orders_amount)       AS min_total_order_amount,
                    quantileState(purchase_price)       AS median_price,
-                   anyLastState(last_available_amount) AS available_amount,
                    anyLastState(last_reviews_amount)   AS reviews_amount,
                    anyLastState(photo_key)             AS photo_key,
-                   anyLastState(last_rating)           AS rating
+                   anyLastState(last_rating)           AS rating,
+                   anyLastState(available_amount_sum)  AS available_amount
             FROM (
                      SELECT date,
                             product_id,
-                            anyLast(category_id)                      AS category_id,
-                            anyLastMerge(title)                       AS title,
-                            toInt64(maxMerge(max_total_order_amount)) AS total_orders_amount,
-                            toInt64(quantileMerge(median_price))      AS purchase_price,
-                            anyLastMerge(photo_key)                   AS photo_key,
-                            maxMerge(rating)                          AS last_rating,
-                            anyLastMerge(reviews_amount)              AS last_reviews_amount,
-                            minMerge(min_available_amount)            AS last_available_amount
+                            anyLast(category_id)                                                 AS category_id,
+                            anyLastMerge(title)                                                  AS title,
+                            toInt64(maxMerge(max_total_order_amount))                            AS total_orders_amount,
+                            toInt64(quantileMerge(median_price))                                 AS purchase_price,
+                            anyLastMerge(photo_key)                                              AS photo_key,
+                            maxMerge(rating)                                                     AS last_rating,
+                            anyLastMerge(reviews_amount)                                         AS last_reviews_amount,
+                            sum(minMerge(min_available_amount))
+                                over (partition by product_id, date order by date)               AS available_amount_sum
                      FROM kazanex.ke_product_daily_sales
                      WHERE %s
                      AND ke_product_daily_sales.category_id IN (
@@ -176,7 +212,8 @@ class AggregateStatsJob : Job {
                             dictGetDescendants('kazanex.categories_hierarchical_dictionary', %s, 0),
                             array(%s))
                          )
-                     GROUP BY product_id, date
+                     GROUP BY product_id, sku_id, date
+                     ORDER BY date
                      )
             GROUP BY category_id, product_id, toStartOfDay(now()) as date
         """
@@ -312,5 +349,9 @@ class AggregateStatsJob : Job {
             ) AS p ON
                 c.category_id = p.category_id
         """
+    }
+
+    private enum class AggregateType {
+        CATEGORY, PRODUCT
     }
 }
