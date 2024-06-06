@@ -77,8 +77,8 @@ class AggregateStatsJob : Job {
                             retryTemplate.execute<Unit, Exception> {
                                 jdbcTemplate.execute(insertStatSql)
                             }
-                            aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
                         }
+                        aggregateJobService.putCategoryAggregate(tableName, rootCategoryId, statType)
                     } catch (e: Exception) {
                         log.error(e) { "Failed to aggregate categoryId=$rootCategoryId for table `$tableName`" }
                         continue
