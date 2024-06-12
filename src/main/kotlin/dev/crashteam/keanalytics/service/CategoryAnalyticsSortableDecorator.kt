@@ -3,6 +3,7 @@ package dev.crashteam.keanalytics.service
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryHierarchy
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
 import dev.crashteam.keanalytics.service.model.CategoryAnalyticsCacheableWrapper
+import dev.crashteam.keanalytics.service.model.CategoryAnalyticsInfo
 import dev.crashteam.keanalytics.service.model.CategoryDailyAnalytics
 import dev.crashteam.mp.base.DatePeriod
 import dev.crashteam.mp.base.Filter
@@ -13,34 +14,34 @@ import org.springframework.stereotype.Service
 import java.time.LocalDate
 
 @Service
-class CategoryAnalyticsCacheableDecorator(
+class CategoryAnalyticsSortableDecorator(
     private val categoryAnalyticsService: CategoryAnalyticsService
 ) {
 
     suspend fun getRootCategoryAnalytics(
         datePeriod: DatePeriod, sortBy: SortBy? = null
-    ): CategoryAnalyticsCacheableWrapper {
-        var categoryAnalytics = categoryAnalyticsService.getRootCategoryAnalytics(datePeriod)
-            ?: return CategoryAnalyticsCacheableWrapper(emptyList())
+    ): List<CategoryAnalyticsInfo> {
+        var categoryAnalytics = categoryAnalyticsService.getRootCategoryAnalytics(datePeriod).categoryAnalytics
+            ?: return emptyList()
         categoryAnalytics = if (sortBy != null) {
             categoryAnalyticsService.sortCategoryAnalytics(categoryAnalytics, sortBy)
         } else {
             categoryAnalytics
         }
-        return CategoryAnalyticsCacheableWrapper(categoryAnalytics)
+        return categoryAnalytics
     }
 
     suspend fun getCategoryAnalytics(
         categoryId: Long, datePeriod: DatePeriod, sortBy: SortBy? = null
-    ): CategoryAnalyticsCacheableWrapper {
-        var categoryAnalytics = categoryAnalyticsService.getCategoryAnalytics(categoryId, datePeriod)
-            ?: return CategoryAnalyticsCacheableWrapper(emptyList())
+    ): List<CategoryAnalyticsInfo> {
+        var categoryAnalytics = categoryAnalyticsService.getCategoryAnalytics(categoryId, datePeriod).categoryAnalytics
+            ?: return emptyList()
         categoryAnalytics = if (sortBy != null) {
             categoryAnalyticsService.sortCategoryAnalytics(categoryAnalytics, sortBy)
         } else {
             categoryAnalytics
         }
-        return CategoryAnalyticsCacheableWrapper(categoryAnalytics)
+        return categoryAnalytics
     }
 
     fun getCategoryDailyAnalytics(

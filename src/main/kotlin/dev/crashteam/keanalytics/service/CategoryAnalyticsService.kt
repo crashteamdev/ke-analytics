@@ -36,7 +36,7 @@ class CategoryAnalyticsService(
     )
     suspend fun getRootCategoryAnalytics(
         datePeriod: DatePeriod,
-    ): List<CategoryAnalyticsInfo>? {
+    ): CategoryAnalyticsCacheableWrapper {
         return withContext(Dispatchers.IO) {
             try {
                 log.debug {
@@ -55,16 +55,16 @@ class CategoryAnalyticsService(
                             " resultSize=${categoryAnalyticsInfoList?.size}"
                 }
                 if (categoryAnalyticsInfoList == null) {
-                    return@withContext emptyList()
+                    return@withContext CategoryAnalyticsCacheableWrapper(emptyList())
                 }
 
-                categoryAnalyticsInfoList
+                CategoryAnalyticsCacheableWrapper(categoryAnalyticsInfoList)
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get root categories analytics." +
                             " queryPeriod=$datePeriod;"
                 }
-                emptyList()
+                CategoryAnalyticsCacheableWrapper(emptyList())
             }
         }
     }
@@ -77,7 +77,7 @@ class CategoryAnalyticsService(
     suspend fun getCategoryAnalytics(
         categoryId: Long,
         datePeriod: DatePeriod,
-    ): List<CategoryAnalyticsInfo>? {
+    ): CategoryAnalyticsCacheableWrapper {
         return withContext(Dispatchers.IO) {
             try {
                 log.debug {
@@ -97,16 +97,16 @@ class CategoryAnalyticsService(
                             " resultSize=${categoryAnalyticsInfoList?.size}"
                 }
                 if (categoryAnalyticsInfoList == null) {
-                    return@withContext emptyList()
+                    return@withContext CategoryAnalyticsCacheableWrapper(emptyList())
                 }
 
-                categoryAnalyticsInfoList
+                CategoryAnalyticsCacheableWrapper(categoryAnalyticsInfoList)
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get categories analytics." +
                             " categoryId=$categoryId; queryPeriod=$datePeriod;"
                 }
-                emptyList()
+                CategoryAnalyticsCacheableWrapper(emptyList())
             }
         }
     }
