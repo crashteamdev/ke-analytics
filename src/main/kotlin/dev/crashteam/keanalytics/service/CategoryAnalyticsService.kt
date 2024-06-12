@@ -32,7 +32,7 @@ class CategoryAnalyticsService(
     @Cacheable(
         value = [RedisConfig.EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME],
         key = "{#datePeriod}",
-        unless = "#result == null || #result.isEmpty()"
+        unless = "#result == null || #result.categoryAnalytics.isEmpty()"
     )
     suspend fun getRootCategoryAnalytics(
         datePeriod: DatePeriod,
@@ -72,7 +72,7 @@ class CategoryAnalyticsService(
     @Cacheable(
         value = [RedisConfig.EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME],
         key = "{#categoryId, #datePeriod, #sortBy}",
-        unless = "#result == null || #result.isEmpty()"
+        unless = "#result == null || #result.categoryAnalytics.isEmpty()"
     )
     suspend fun getCategoryAnalytics(
         categoryId: Long,
