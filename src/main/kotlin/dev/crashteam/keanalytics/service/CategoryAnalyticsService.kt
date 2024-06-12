@@ -1,5 +1,6 @@
 package dev.crashteam.keanalytics.service
 
+import dev.crashteam.keanalytics.config.RedisConfig
 import dev.crashteam.keanalytics.extensions.toLocalDates
 import dev.crashteam.keanalytics.extensions.toMoney
 import dev.crashteam.keanalytics.extensions.toRepositoryDomain
@@ -14,6 +15,7 @@ import dev.crashteam.mp.base.Sort
 import dev.crashteam.mp.external.analytics.category.ProductAnalytics
 import kotlinx.coroutines.*
 import mu.KotlinLogging
+import org.springframework.cache.annotation.Cacheable
 import org.springframework.core.convert.ConversionService
 import org.springframework.stereotype.Service
 import java.math.RoundingMode
@@ -27,14 +29,18 @@ class CategoryAnalyticsService(
     private val conversionService: ConversionService,
 ) {
 
+    @Cacheable(
+        value = [RedisConfig.EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME],
+        key = "{#datePeriod}",
+        unless = "#result == null || #result.categoryAnalytics.isEmpty()"
+    )
     suspend fun getRootCategoryAnalytics(
         datePeriod: DatePeriod,
-        sortBy: SortBy? = null
     ): List<CategoryAnalyticsInfo>? {
         return withContext(Dispatchers.IO) {
             try {
                 log.debug {
-                    "Get root categories analytics (Async). queryPeriod=$datePeriod; sortBy=$sortBy"
+                    "Get root categories analytics (Async). queryPeriod=$datePeriod;"
                 }
                 val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)
                 log.debug { "Root categories: $rootCategoryIds" }
@@ -46,37 +52,37 @@ class CategoryAnalyticsService(
                 log.debug {
                     "Finish get root categories analytics (Async)." +
                             " queryPeriod=$datePeriod" +
-                            " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
+                            " resultSize=${categoryAnalyticsInfoList?.size}"
                 }
                 if (categoryAnalyticsInfoList == null) {
                     return@withContext emptyList()
                 }
-                val categoryAnalyticsInfos = if (sortBy != null) {
-                    sortCategoryAnalytics(categoryAnalyticsInfoList, sortBy)
-                } else {
-                    categoryAnalyticsInfoList
-                }
-                categoryAnalyticsInfos
+
+                categoryAnalyticsInfoList
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get root categories analytics." +
-                            " queryPeriod=$datePeriod; sortBy=$sortBy"
+                            " queryPeriod=$datePeriod;"
                 }
                 emptyList()
             }
         }
     }
 
+    @Cacheable(
+        value = [RedisConfig.EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME],
+        key = "{#categoryId, #datePeriod, #sortBy}",
+        unless = "#result == null || #result.categoryAnalytics.isEmpty()"
+    )
     suspend fun getCategoryAnalytics(
         categoryId: Long,
         datePeriod: DatePeriod,
-        sortBy: SortBy? = null
     ): List<CategoryAnalyticsInfo>? {
         return withContext(Dispatchers.IO) {
             try {
                 log.debug {
                     "Get category analytics (Async)." +
-                            " categoryId=$categoryId; queryPeriod=$datePeriod; sortBy=$sortBy"
+                            " categoryId=$categoryId; queryPeriod=$datePeriod;"
                 }
                 val childrenCategoryIds = chCategoryRepository.getDescendantCategories(categoryId, 1)
                 log.debug { "Child categories: $childrenCategoryIds" }
@@ -88,20 +94,17 @@ class CategoryAnalyticsService(
                 log.debug {
                     "Finish get category analytics." +
                             " categoryId=$categoryId; queryPeriod=$datePeriod" +
-                            " sortBy=$sortBy; resultSize=${categoryAnalyticsInfoList?.size}"
+                            " resultSize=${categoryAnalyticsInfoList?.size}"
                 }
                 if (categoryAnalyticsInfoList == null) {
                     return@withContext emptyList()
                 }
-                if (sortBy != null) {
-                    sortCategoryAnalytics(categoryAnalyticsInfoList, sortBy)
-                } else {
-                    categoryAnalyticsInfoList
-                }
+
+                categoryAnalyticsInfoList
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get categories analytics." +
-                            " categoryId=$categoryId; queryPeriod=$datePeriod; sortBy=$sortBy"
+                            " categoryId=$categoryId; queryPeriod=$datePeriod;"
                 }
                 emptyList()
             }
@@ -213,7 +216,7 @@ class CategoryAnalyticsService(
         )
     }
 
-    private fun sortCategoryAnalytics(
+    fun sortCategoryAnalytics(
         categoryAnalytics: List<CategoryAnalyticsInfo>,
         sortBy: SortBy
     ): List<CategoryAnalyticsInfo> {

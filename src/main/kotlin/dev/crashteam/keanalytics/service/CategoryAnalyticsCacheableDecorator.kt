@@ -1,6 +1,5 @@
 package dev.crashteam.keanalytics.service
 
-import dev.crashteam.keanalytics.config.RedisConfig
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryHierarchy
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
 import dev.crashteam.keanalytics.service.model.CategoryAnalyticsCacheableWrapper
@@ -10,7 +9,6 @@ import dev.crashteam.mp.base.Filter
 import dev.crashteam.mp.base.LimitOffsetPagination
 import dev.crashteam.mp.base.Sort
 import dev.crashteam.mp.external.analytics.category.ProductAnalytics
-import org.springframework.cache.annotation.Cacheable
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
@@ -19,34 +17,30 @@ class CategoryAnalyticsCacheableDecorator(
     private val categoryAnalyticsService: CategoryAnalyticsService
 ) {
 
-    @Cacheable(
-        value = [RedisConfig.EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME],
-        key = "{#datePeriod, #sortBy}",
-        unless = "#result == null || #result.categoryAnalytics.isEmpty()"
-    )
     suspend fun getRootCategoryAnalytics(
         datePeriod: DatePeriod, sortBy: SortBy? = null
     ): CategoryAnalyticsCacheableWrapper {
-        return CategoryAnalyticsCacheableWrapper(
-            categoryAnalyticsService.getRootCategoryAnalytics(
-                datePeriod, sortBy
-            )
-        )
+        var categoryAnalytics = categoryAnalyticsService.getRootCategoryAnalytics(datePeriod)
+            ?: return CategoryAnalyticsCacheableWrapper(emptyList())
+        categoryAnalytics = if (sortBy != null) {
+            categoryAnalyticsService.sortCategoryAnalytics(categoryAnalytics, sortBy)
+        } else {
+            categoryAnalytics
+        }
+        return CategoryAnalyticsCacheableWrapper(categoryAnalytics)
     }
 
-    @Cacheable(
-        value = [RedisConfig.EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME],
-        key = "{#categoryId, #datePeriod, #sortBy}",
-        unless = "#result == null || #result.categoryAnalytics.isEmpty()"
-    )
     suspend fun getCategoryAnalytics(
         categoryId: Long, datePeriod: DatePeriod, sortBy: SortBy? = null
     ): CategoryAnalyticsCacheableWrapper {
-        return CategoryAnalyticsCacheableWrapper(
-            categoryAnalyticsService.getCategoryAnalytics(
-                categoryId, datePeriod, sortBy
-            )
-        )
+        var categoryAnalytics = categoryAnalyticsService.getCategoryAnalytics(categoryId, datePeriod)
+            ?: return CategoryAnalyticsCacheableWrapper(emptyList())
+        categoryAnalytics = if (sortBy != null) {
+            categoryAnalyticsService.sortCategoryAnalytics(categoryAnalytics, sortBy)
+        } else {
+            categoryAnalytics
+        }
+        return CategoryAnalyticsCacheableWrapper(categoryAnalytics)
     }
 
     fun getCategoryDailyAnalytics(
