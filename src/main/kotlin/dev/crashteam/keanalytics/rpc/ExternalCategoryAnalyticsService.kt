@@ -6,7 +6,7 @@ import dev.crashteam.keanalytics.extensions.toRepositoryDomain
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortField
 import dev.crashteam.keanalytics.repository.mongo.UserRepository
-import dev.crashteam.keanalytics.service.CategoryAnalyticsCacheableDecorator
+import dev.crashteam.keanalytics.service.CategoryAnalyticsSortableDecorator
 import dev.crashteam.keanalytics.service.ProductServiceAnalytics
 import dev.crashteam.keanalytics.service.UserRestrictionService
 import dev.crashteam.mp.base.DatePeriod
@@ -23,7 +23,7 @@ private val log = KotlinLogging.logger {}
 
 @GrpcService
 class ExternalCategoryAnalyticsService(
-    private val categoryAnalyticsService: CategoryAnalyticsCacheableDecorator,
+    private val categoryAnalyticsService: CategoryAnalyticsSortableDecorator,
     private val productServiceAnalytics: ProductServiceAnalytics,
     private val conversionService: ConversionService,
     private val userRepository: UserRepository,
@@ -80,8 +80,8 @@ class ExternalCategoryAnalyticsService(
                     log.error(e) { "Exception during get categories. request=$request" }
                     throw e
                 }
-            }.categoryAnalytics
-            if (categoriesAnalytics.isNullOrEmpty()) {
+            }
+            if (categoriesAnalytics.isEmpty()) {
                 log.debug { "Failed get category analytics. Empty categoryAnalytics response" }
                 responseObserver.onNext(GetCategoryAnalyticsResponse.newBuilder().apply {
                     this.errorResponse = GetCategoryAnalyticsResponse.ErrorResponse.newBuilder().apply {
