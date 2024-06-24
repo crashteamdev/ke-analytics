@@ -17,7 +17,7 @@ class ProtoFilterToChSqlConverter : DataConverter<Filter, SqlFilterField> {
         return if (source.condition.hasEqualsTextCondition()) {
             LikeSqlFilter(source.fieldName, source.condition.equalsTextCondition.text)
         } else if (source.condition.hasEqualsValueCondition()) {
-            EqualsSqlFilter(source.fieldName, source.condition.equalsTextCondition.text)
+            EqualsSqlFilter(source.fieldName, source.condition.equalsValueCondition.value)
         } else if (source.condition.hasFilterBetweenCondition()) {
             BetweenSqlFilter(
                 source.fieldName,
