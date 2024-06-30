@@ -1,8 +1,8 @@
 package dev.crashteam.keanalytics.stream.handler.aws.payment
 
-import dev.crashteam.keanalytics.domain.mongo.PaymentDocument
+import dev.crashteam.keanalytics.db.model.tables.pojos.Payment
 import dev.crashteam.keanalytics.extensions.toLocalDateTime
-import dev.crashteam.keanalytics.repository.mongo.PaymentRepository
+import dev.crashteam.keanalytics.repository.postgres.PaymentRepository
 import dev.crashteam.keanalytics.service.PaymentService
 import dev.crashteam.payment.KeAnalyticsContext
 import dev.crashteam.payment.PaymentCreated
@@ -25,7 +25,7 @@ class KePaymentCreatedEventHandler(
         runBlocking {
             for (paymentEvent in events) {
                 val paymentCreated = paymentEvent.payload.paymentChange.paymentCreated
-                val paymentDocument = paymentRepository.findByPaymentId(paymentCreated.paymentId).awaitSingleOrNull()
+                val paymentDocument = paymentRepository.findByPaymentId(paymentCreated.paymentId)
 
                 if (paymentDocument != null) continue
 
@@ -45,19 +45,19 @@ class KePaymentCreatedEventHandler(
     }
 
     private suspend fun createPayment(paymentCreated: PaymentCreated) {
-        val newPaymentDocument = PaymentDocument(
-            paymentId = paymentCreated.paymentId,
-            userId = paymentCreated.userId,
-            createdAt = paymentCreated.createdAt.toLocalDateTime(),
-            status = mapPaymentStatus(paymentCreated.status),
-            paid = false,
-            amount = paymentCreated.amount.value.toBigDecimal().movePointLeft(2),
-            multiply = paymentCreated.userPaidService.paidService.context.multiply.toShort(),
+        val payment = Payment().apply {
+            this.paymentId = paymentCreated.paymentId
+            this.userId = paymentCreated.userId
+            createdAt = paymentCreated.createdAt.toLocalDateTime()
+            status = mapPaymentStatus(paymentCreated.status)
+            paid = false
+            amount = paymentCreated.amount.value.toBigDecimal().movePointLeft(2).toString()
+            multiply = paymentCreated.userPaidService.paidService.context.multiply.toShort()
             subscriptionType = mapProtoSubscriptionPlan(
                 paymentCreated.userPaidService.paidService.context.keAnalyticsContext.plan
-            )
-        )
-        paymentRepository.save(newPaymentDocument).awaitSingleOrNull()
+            ).toShort()
+        }
+        paymentRepository.saveNewPayment(payment)
     }
 
     override fun isHandle(event: PaymentEvent): Boolean {

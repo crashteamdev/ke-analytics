@@ -1,43 +1,42 @@
 package dev.crashteam.keanalytics.service
 
-import dev.crashteam.keanalytics.domain.mongo.ProSubscription
-import dev.crashteam.keanalytics.domain.mongo.UserDocument
+import dev.crashteam.keanalytics.db.model.tables.pojos.Users
+import dev.crashteam.keanalytics.domain.ProSubscription
 import dev.crashteam.keanalytics.extensions.mapToUserSubscription
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.Month
 
 @Service
 class UserRestrictionService {
 
-    fun checkShopReportAccess(user: UserDocument, currentReportCount: Int): RestrictionResult {
-        if (user.subscription == null || user.subscription.endAt.isBefore(LocalDateTime.now())) {
+    fun checkShopReportAccess(user: Users, currentReportCount: Int): RestrictionResult {
+        if (user.subscriptionType == null || user.subscriptionEndAt.isBefore(LocalDateTime.now())) {
             return RestrictionResult.PROHIBIT
         }
-        val userSubscription = user.subscription.mapToUserSubscription()!!
+        val userSubscription = user.subscriptionType.mapToUserSubscription()
         if (currentReportCount >= userSubscription.shopReports()) {
             return RestrictionResult.PROHIBIT
         }
         return RestrictionResult.PERMIT
     }
 
-    fun checkCategoryReportAccess(user: UserDocument, currentReportCount: Int): RestrictionResult {
-        if (user.subscription == null || user.subscription.endAt.isBefore(LocalDateTime.now())) {
+    fun checkCategoryReportAccess(user: Users, currentReportCount: Int): RestrictionResult {
+        if (user.subscriptionType == null || user.subscriptionEndAt.isBefore(LocalDateTime.now())) {
             return RestrictionResult.PROHIBIT
         }
-        val userSubscription = user.subscription.mapToUserSubscription()!!
+        val userSubscription = user.subscriptionType.mapToUserSubscription()
         if (currentReportCount >= userSubscription.categoryReports()) {
             return RestrictionResult.PROHIBIT
         }
         return RestrictionResult.PERMIT
     }
 
-    fun checkDaysAccess(user: UserDocument, daysRequestCount: Int): RestrictionResult {
-        if (user.subscription == null || user.subscription.endAt.isBefore(LocalDateTime.now())) {
+    fun checkDaysAccess(user: Users, daysRequestCount: Int): RestrictionResult {
+        if (user.subscriptionType == null || user.subscriptionEndAt.isBefore(LocalDateTime.now())) {
             return RestrictionResult.PROHIBIT
         }
-        val userSubscription = user.subscription.mapToUserSubscription()!!
+        val userSubscription = user.subscriptionType.mapToUserSubscription()
         val days = userSubscription.days()
         if (!days.contains(daysRequestCount)) {
             return RestrictionResult.PROHIBIT
@@ -45,11 +44,11 @@ class UserRestrictionService {
         return RestrictionResult.PERMIT
     }
 
-    fun checkDaysHistoryAccess(user: UserDocument, fromTime: LocalDateTime): RestrictionResult {
-        if (user.subscription == null || user.subscription.endAt.isBefore(LocalDateTime.now())) {
+    fun checkDaysHistoryAccess(user: Users, fromTime: LocalDateTime): RestrictionResult {
+        if (user.subscriptionType == null || user.subscriptionEndAt.isBefore(LocalDateTime.now())) {
             return RestrictionResult.PROHIBIT
         }
-        val userSubscription = user.subscription.mapToUserSubscription()!!
+        val userSubscription = user.subscriptionType.mapToUserSubscription()
         val days = userSubscription.days()
         if (userSubscription != ProSubscription) {
             val minimalSubscriptionDay = LocalDate.now().minusDays(days.upperBound.value.get().toLong() + 1)

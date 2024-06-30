@@ -6,6 +6,7 @@ import com.clickhouse.jdbc.ClickHouseDataSource
 import dev.crashteam.keanalytics.config.properties.ClickHouseDbProperties
 import liquibase.integration.spring.SpringLiquibase
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.autoconfigure.liquibase.LiquibaseProperties
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -38,7 +39,7 @@ class ClickhouseConfig {
 
     @Bean
     @Autowired
-    fun clickHouseJdbcTemplate(clickHouseDataSource: DataSource): JdbcTemplate {
+    fun clickHouseJdbcTemplate(@Qualifier("clickHouseDataSource") clickHouseDataSource: DataSource): JdbcTemplate {
         return JdbcTemplate(clickHouseDataSource)
     }
 

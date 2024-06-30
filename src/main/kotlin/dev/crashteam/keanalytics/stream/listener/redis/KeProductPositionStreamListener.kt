@@ -2,12 +2,8 @@ package dev.crashteam.keanalytics.stream.listener.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import dev.crashteam.keanalytics.domain.mongo.ProductPositionId
-import dev.crashteam.keanalytics.domain.mongo.ProductPositionMetadata
-import dev.crashteam.keanalytics.domain.mongo.ProductPositionTSDocument
 import dev.crashteam.keanalytics.repository.clickhouse.CHProductPositionRepository
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChProductPosition
-import dev.crashteam.keanalytics.repository.mongo.ProductPositionRepository
 import dev.crashteam.keanalytics.stream.model.KeProductPositionStreamRecord
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
