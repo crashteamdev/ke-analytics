@@ -23,7 +23,7 @@ class EqualsSqlFilter(
     override val fieldName: String,
     private val value: String
 ) : SqlFilterField {
-    override fun sqlPredicate(): String = "$fieldName = $value"
+    override fun sqlPredicate(): String = "$fieldName = '$value'"
     override val type: SqlFilterFieldType = SqlFilterFieldType.String
 }
 

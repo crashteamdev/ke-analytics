@@ -292,9 +292,9 @@ class CHCategoryRepository(
         sqlStringBuilder.append(GET_CATEGORY_PRODUCT_ANALYTICS_SQL.format(queryTable))
         filter?.sqlFilterFields?.forEachIndexed { index, sqlFilterField ->
             if (index == 0) {
-                sqlStringBuilder.append("HAVING '${sqlFilterField.sqlPredicate()}' ")
+                sqlStringBuilder.append("HAVING ${sqlFilterField.sqlPredicate()} ")
             } else {
-                sqlStringBuilder.append("AND '${sqlFilterField.sqlPredicate()}' ")
+                sqlStringBuilder.append("AND ${sqlFilterField.sqlPredicate()} ")
             }
         }
         if (sort != null && sort.sortFields.isNotEmpty()) {
