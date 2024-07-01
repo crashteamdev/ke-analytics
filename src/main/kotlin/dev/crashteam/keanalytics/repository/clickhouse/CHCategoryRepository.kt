@@ -293,8 +293,9 @@ class CHCategoryRepository(
         filter?.sqlFilterFields?.forEachIndexed { index, sqlFilterField ->
             if (index == 0) {
                 sqlStringBuilder.append("HAVING ${sqlFilterField.sqlPredicate()} ")
+            } else {
+                sqlStringBuilder.append("AND ${sqlFilterField.sqlPredicate()} ")
             }
-            sqlStringBuilder.append("AND ${sqlFilterField.sqlPredicate()} ")
         }
         if (sort != null && sort.sortFields.isNotEmpty()) {
             sqlStringBuilder.append("ORDER BY ")
