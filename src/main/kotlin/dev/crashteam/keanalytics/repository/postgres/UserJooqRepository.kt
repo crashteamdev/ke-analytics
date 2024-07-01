@@ -36,7 +36,7 @@ class UserJooqRepository(
             users.subscriptionEndAt,
             users.email,
             users.role
-        )
+        ).execute()
     }
 
     override fun updateSubscription(
