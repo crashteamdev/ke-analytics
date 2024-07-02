@@ -1,8 +1,7 @@
 package dev.crashteam.keanalytics.extensions
 
-import dev.crashteam.keanalytics.domain.mongo.DefaultSubscription
-import dev.crashteam.keanalytics.domain.mongo.SubscriptionDocument
-import dev.crashteam.keanalytics.domain.mongo.UserSubscription
+import dev.crashteam.keanalytics.db.model.enums.SubscriptionType
+import dev.crashteam.keanalytics.domain.*
 
 fun Int.mapToSubscription(): UserSubscription? {
     return UserSubscription::class.sealedSubclasses.firstOrNull {
@@ -16,12 +15,24 @@ fun String.mapToSubscription(): UserSubscription? {
     }?.objectInstance
 }
 
-fun SubscriptionDocument.mapToUserSubscription(): UserSubscription? {
-    if (this.type != null && this.subType == null) {
-        return DefaultSubscription
+fun SubscriptionType.mapToUserSubscription(): UserSubscription {
+    return when (this) {
+        SubscriptionType.default_ -> DefaultSubscription
+
+        SubscriptionType.advanced -> AdvancedSubscription
+
+        SubscriptionType.pro -> ProSubscription
+
+        SubscriptionType.demo -> DemoSubscription
     }
-    return UserSubscription::class.sealedSubclasses.firstOrNull {
-        it.objectInstance?.name == this.subType
-    }?.objectInstance
+}
+
+fun String.mapToEntityUserSubscription(): SubscriptionType {
+    return when (this) {
+        "default" -> SubscriptionType.default_
+        "advanced" -> SubscriptionType.advanced
+        "pro" -> SubscriptionType.pro
+        else -> throw IllegalArgumentException("Unknown type: $this")
+    }
 }
 

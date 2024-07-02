@@ -15,7 +15,6 @@ import java.util.*
 @ComponentScan(
     basePackages = [
         "dev.crashteam.keanalytics.controller.converter",
-        "dev.crashteam.keanalytics.domain.mongo.converter",
         "dev.crashteam.keanalytics.converter",
     ]
 )

@@ -1,10 +1,9 @@
 package dev.crashteam.keanalytics.stream.handler.aws.payment
 
-import dev.crashteam.keanalytics.repository.mongo.PaymentRepository
+import dev.crashteam.keanalytics.repository.postgres.PaymentRepository
 import dev.crashteam.keanalytics.service.PaymentService
 import dev.crashteam.payment.PaymentEvent
 import dev.crashteam.payment.PaymentStatus
-import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.stereotype.Component
@@ -21,24 +20,22 @@ class KePaymentStatusEventHandler(
         runBlocking {
             for (event in events) {
                 val paymentStatusChanged = event.payload.paymentChange.paymentStatusChanged
-                val paymentDocument =
-                    paymentRepository.findByPaymentId(paymentStatusChanged.paymentId).awaitSingleOrNull()
-                        ?: continue
-
-                val paymentStatus = mapPaymentStatus(paymentStatusChanged.status)
-                val updatePaymentDocument = paymentDocument.copy(status = paymentStatus)
                 when (paymentStatusChanged.status) {
                     PaymentStatus.PAYMENT_STATUS_PENDING,
                     PaymentStatus.PAYMENT_STATUS_CANCELED,
                     PaymentStatus.PAYMENT_STATUS_FAILED -> {
-                        paymentRepository.save(updatePaymentDocument).awaitSingleOrNull()
+                        log.warn { "Failed payment. paymentId=${paymentStatusChanged.paymentId}" }
+                        val paymentStatus = mapPaymentStatus(paymentStatusChanged.status)
+                        paymentRepository.updatePaymentStatus(paymentStatusChanged.paymentId, paymentStatus, false)
                     }
 
                     PaymentStatus.PAYMENT_STATUS_SUCCESS -> {
-                        if (paymentDocument.status != "success") {
+                        log.info { "Success payment. paymentId=${paymentStatusChanged.paymentId}" }
+                        val paymentEntity = paymentRepository.findByPaymentId(paymentStatusChanged.paymentId)
+                        if (paymentEntity?.status != "success") {
                             paymentService.callbackPayment(
                                 paymentId = paymentStatusChanged.paymentId,
-                                userId = paymentDocument.userId,
+                                userId = paymentEntity?.userId!!,
                             )
                         }
                     }

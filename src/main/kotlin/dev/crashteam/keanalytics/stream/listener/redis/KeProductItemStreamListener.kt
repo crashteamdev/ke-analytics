@@ -3,14 +3,8 @@ package dev.crashteam.keanalytics.stream.listener.redis
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import dev.crashteam.keanalytics.converter.clickhouse.ChKeProductConverterResultWrapper
-import dev.crashteam.keanalytics.domain.mongo.*
 import dev.crashteam.keanalytics.repository.clickhouse.CHProductRepository
-import dev.crashteam.keanalytics.repository.mongo.ProductChangeTimeSeriesRepository
-import dev.crashteam.keanalytics.repository.mongo.SellerRepository
-import dev.crashteam.keanalytics.service.ProductService
-import dev.crashteam.keanalytics.service.model.ProductDocumentTimeWrapper
-import dev.crashteam.keanalytics.stream.model.KeItemSkuStreamRecord
-import dev.crashteam.keanalytics.stream.model.KeProductCategoryStreamRecord
+import dev.crashteam.keanalytics.db.model.tables.pojos.Sellers
 import dev.crashteam.keanalytics.stream.model.KeProductItemStreamRecord
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -26,7 +20,7 @@ private val log = KotlinLogging.logger {}
 class KeProductItemStreamListener(
     private val objectMapper: ObjectMapper,
     private val conversionService: ConversionService,
-    private val sellerRepository: SellerRepository,
+    private val sellerRepository: dev.crashteam.keanalytics.repository.postgres.SellerRepository,
     private val chProductRepository: CHProductRepository,
 ) : BatchStreamListener<String, ObjectRecord<String, String>> {
 
@@ -52,14 +46,14 @@ class KeProductItemStreamListener(
             val sellerTask = async {
                 try {
                     val sellerDetailDocuments = keProductItemStreamRecords.map {
-                        SellerDetailDocument(
-                            sellerId = it.seller.id,
-                            accountId = it.seller.accountId,
-                            title = it.seller.sellerTitle,
-                            link = it.seller.sellerLink
+                        Sellers(
+                            it.seller.id,
+                            it.seller.accountId,
+                            it.seller.sellerTitle,
+                            it.seller.sellerLink
                         )
                     }.toSet()
-                    sellerRepository.saveSellerBatch(sellerDetailDocuments).subscribe()
+                    sellerRepository.saveBatch(sellerDetailDocuments)
                 } catch (e: Exception) {
                     log.error(e) { "Exception during save seller info" }
                 }

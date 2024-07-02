@@ -1,17 +1,13 @@
 package dev.crashteam.keanalytics.job
 
+import dev.crashteam.keanalytics.extensions.getApplicationContext
+import dev.crashteam.keanalytics.report.ReportFileService
+import dev.crashteam.keanalytics.report.ReportService
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.apache.commons.io.FileUtils
-import dev.crashteam.keanalytics.domain.mongo.ReportStatus
-import dev.crashteam.keanalytics.domain.mongo.ReportVersion
-import dev.crashteam.keanalytics.extensions.getApplicationContext
-import dev.crashteam.keanalytics.report.ReportFileService
-import dev.crashteam.keanalytics.report.ReportService
-import dev.crashteam.keanalytics.repository.mongo.ReportRepository
 import org.quartz.Job
 import org.quartz.JobExecutionContext
 import java.math.BigInteger
@@ -37,7 +33,6 @@ class GenerateSellerReportJob : Job {
         val jobId = context.jobDetail.jobDataMap["job_id"] as? String
             ?: throw IllegalStateException("job_id can't be null")
         val userId = context.jobDetail.jobDataMap["user_id"] as? String
-        val version = ReportVersion.valueOf(context.jobDetail.jobDataMap["version"] as? String ?: ReportVersion.V1.name)
         val now = LocalDateTime.now().toLocalDate().atStartOfDay()
         val fromTime = now.minusDays(interval.toLong())
         val toTime = now
@@ -46,30 +41,32 @@ class GenerateSellerReportJob : Job {
                 Files.createTempFile("link-${UUID.randomUUID()}", "")
             }
             try {
-                log.info { "Generating report job. sellerLink=${sellerLink}; jobId=${jobId}; version=$version" }
-
-                if (version == ReportVersion.V2) {
-                    reportFileService.generateReportBySellerV2(
-                        sellerLink,
-                        fromTime,
-                        toTime,
-                        tempFilePath.outputStream()
-                    )
-                    log.info(
-                        "Save generated seller file. name=${tempFilePath.fileName};" +
-                                " size=${FileUtils.byteCountToDisplaySize(BigInteger.valueOf(tempFilePath.toFile().length()))}",
-                    )
-                    reportService.saveSellerReportV2(sellerLink, interval, jobId, tempFilePath.inputStream())
-                } else if (version == ReportVersion.V1) {
-                    val generatedReport = reportFileService.generateReportBySeller(sellerLink, fromTime, toTime)
-                    reportService.saveSellerReport(sellerLink, interval, jobId, generatedReport)
-                } else {
-                    throw IllegalStateException("Unknown report version: $version")
-                }
+                log.info { "Generating report job. sellerLink=${sellerLink}; jobId=${jobId}" }
+                reportFileService.generateReportBySellerV2(
+                    sellerLink,
+                    fromTime,
+                    toTime,
+                    tempFilePath.outputStream()
+                )
+                log.info(
+                    "Save generated seller file. name=${tempFilePath.fileName};" +
+                            " size=${
+                                FileUtils.byteCountToDisplaySize(
+                                    BigInteger.valueOf(
+                                        tempFilePath.toFile().length()
+                                    )
+                                )
+                            }",
+                )
+                reportService.saveSellerReportV2(sellerLink, interval, jobId, tempFilePath.inputStream())
             } catch (e: Exception) {
                 log.error(e) { "Failed to generate report. seller=$sellerLink; interval=$interval; jobId=$jobId" }
-                val reportRepository = applicationContext.getBean(ReportRepository::class.java)
-                reportRepository.updateReportStatus(jobId, ReportStatus.FAILED).awaitSingleOrNull()
+                val reportRepository =
+                    applicationContext.getBean(dev.crashteam.keanalytics.repository.postgres.ReportRepository::class.java)
+                reportRepository.updateReportStatusByJobId(
+                    jobId,
+                    dev.crashteam.keanalytics.db.model.enums.ReportStatus.failed
+                )
             } finally {
                 tempFilePath.deleteIfExists()
             }

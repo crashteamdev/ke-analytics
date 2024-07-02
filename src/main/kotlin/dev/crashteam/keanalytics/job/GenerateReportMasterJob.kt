@@ -1,13 +1,10 @@
 package dev.crashteam.keanalytics.job
 
-import kotlinx.coroutines.reactor.awaitSingleOrNull
+import dev.crashteam.keanalytics.db.model.tables.pojos.Reports
+import dev.crashteam.keanalytics.extensions.getApplicationContext
+import dev.crashteam.keanalytics.repository.postgres.ReportRepository
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import dev.crashteam.keanalytics.domain.mongo.ReportDocument
-import dev.crashteam.keanalytics.domain.mongo.ReportStatus
-import dev.crashteam.keanalytics.domain.mongo.ReportType
-import dev.crashteam.keanalytics.extensions.getApplicationContext
-import dev.crashteam.keanalytics.repository.mongo.ReportRepository
 import org.quartz.*
 import org.springframework.scheduling.quartz.SimpleTriggerFactoryBean
 import java.util.*
@@ -21,20 +18,22 @@ class GenerateReportMasterJob : Job {
         val reportRepository = applicationContext.getBean(ReportRepository::class.java)
         runBlocking {
             val reportDocuments =
-                reportRepository.findAllByStatus(ReportStatus.PROCESSING).collectList().awaitSingleOrNull()
+                reportRepository.findAllByStatus(dev.crashteam.keanalytics.db.model.enums.ReportStatus.processing)
             val schedulerFactoryBean = applicationContext.getBean(Scheduler::class.java)
-            reportDocuments?.forEach { reportDoc ->
+            reportDocuments.forEach { reportDoc ->
                 when (reportDoc.reportType) {
-                    ReportType.SELLER -> {
+                    dev.crashteam.keanalytics.db.model.enums.ReportType.seller -> {
                         log.info { "Schedule job report. sellerLink=${reportDoc.sellerLink}; jobId=${reportDoc.jobId}" }
                         val jobIdentity = "${reportDoc.sellerLink}-seller-report-${reportDoc.jobId}-Job"
                         scheduleShopReportJob(jobIdentity, reportDoc, schedulerFactoryBean)
                     }
-                    ReportType.CATEGORY -> {
-                        log.info { "Schedule job report. categoryPubliId=${reportDoc.categoryPublicId}; jobId=${reportDoc.jobId}" }
-                        val jobIdentity = "${reportDoc.categoryPublicId}-category-report-${reportDoc.jobId}-Job"
+
+                    dev.crashteam.keanalytics.db.model.enums.ReportType.category -> {
+                        log.info { "Schedule job report. categoryId=${reportDoc.categoryId}; jobId=${reportDoc.jobId}" }
+                        val jobIdentity = "${reportDoc.categoryId}-category-report-${reportDoc.jobId}-Job"
                         schedulerCategoryReportJob(jobIdentity, reportDoc, schedulerFactoryBean)
                     }
+
                     else -> {
                         if (reportDoc.sellerLink != null) {
                             // Execute shop report
@@ -47,10 +46,18 @@ class GenerateReportMasterJob : Job {
         }
     }
 
-    private fun scheduleShopReportJob(jobIdentity: String, reportDoc: ReportDocument, schedulerFactoryBean: Scheduler) {
+    private fun scheduleShopReportJob(jobIdentity: String, reportDoc: Reports, schedulerFactoryBean: Scheduler) {
         val jobKey = JobKey(jobIdentity)
         val jobDetail =
-            JobBuilder.newJob(GenerateSellerReportJob::class.java).withIdentity(jobKey).build()
+            JobBuilder.newJob(GenerateSellerReportJob::class.java).withIdentity(jobKey)
+                .usingJobData(JobDataMap(
+                    mapOf(
+                        "sellerLink" to reportDoc.sellerLink,
+                        "interval" to reportDoc.interval,
+                        "job_id" to reportDoc.jobId,
+                        "user_id" to reportDoc.userId
+                    )
+                )).build()
         val triggerFactoryBean = SimpleTriggerFactoryBean().apply {
             setName(jobIdentity)
             setStartTime(Date())
@@ -60,11 +67,6 @@ class GenerateReportMasterJob : Job {
             setPriority(Int.MAX_VALUE)
             afterPropertiesSet()
         }.getObject()
-        jobDetail.jobDataMap["sellerLink"] = reportDoc.sellerLink
-        jobDetail.jobDataMap["interval"] = reportDoc.interval
-        jobDetail.jobDataMap["job_id"] = reportDoc.jobId
-        jobDetail.jobDataMap["user_id"] = reportDoc.userId
-        jobDetail.jobDataMap["version"] = reportDoc.version.name
         if (!schedulerFactoryBean.checkExists(jobKey)) {
             schedulerFactoryBean.scheduleJob(jobDetail, triggerFactoryBean)
         }
@@ -72,12 +74,23 @@ class GenerateReportMasterJob : Job {
 
     private fun schedulerCategoryReportJob(
         jobIdentity: String,
-        reportDoc: ReportDocument,
+        reportDoc: Reports,
         schedulerFactoryBean: Scheduler
     ) {
         val jobKey = JobKey(jobIdentity)
         val jobDetail =
-            JobBuilder.newJob(GenerateCategoryReportJob::class.java).withIdentity(jobKey).build()
+            JobBuilder.newJob(GenerateCategoryReportJob::class.java).withIdentity(jobKey)
+                .usingJobData(
+                    JobDataMap(
+                        mapOf<String, Any>(
+                            "categoryPublicId" to reportDoc.categoryId,
+                            "interval" to reportDoc.interval,
+                            "job_id" to reportDoc.jobId,
+                            "user_id" to reportDoc.userId
+                        )
+                    )
+
+                ).build()
         val triggerFactoryBean = SimpleTriggerFactoryBean().apply {
             setName(jobIdentity)
             setStartTime(Date())
@@ -87,11 +100,6 @@ class GenerateReportMasterJob : Job {
             setPriority(Int.MAX_VALUE)
             afterPropertiesSet()
         }.getObject()
-        jobDetail.jobDataMap["categoryPublicId"] = reportDoc.categoryPublicId
-        jobDetail.jobDataMap["interval"] = reportDoc.interval
-        jobDetail.jobDataMap["job_id"] = reportDoc.jobId
-        jobDetail.jobDataMap["user_id"] = reportDoc.userId
-        jobDetail.jobDataMap["version"] = reportDoc.version.name
         if (!schedulerFactoryBean.checkExists(jobKey)) {
             schedulerFactoryBean.scheduleJob(jobDetail, triggerFactoryBean)
         }

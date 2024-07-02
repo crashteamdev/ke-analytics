@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.quartz.SchedulerFactoryBean
 import java.util.*
+import javax.sql.DataSource
 
 @Configuration
 @ConditionalOnProperty(
@@ -26,9 +27,10 @@ class QuartzConfig {
     }
 
     @Bean
-    fun schedulerFactoryBean(): SchedulerFactoryBean {
+    fun schedulerFactoryBean(dataSource: DataSource): SchedulerFactoryBean {
         val schedulerFactoryBean = SchedulerFactoryBean()
         schedulerFactoryBean.setQuartzProperties(getAllProperties())
+        schedulerFactoryBean.setDataSource(dataSource)
         schedulerFactoryBean.setWaitForJobsToCompleteOnShutdown(true)
         schedulerFactoryBean.setApplicationContextSchedulerContextKey("applicationContext")
 

@@ -1,14 +1,12 @@
 package dev.crashteam.keanalytics.controller
 
-import dev.crashteam.keanalytics.domain.mongo.*
+import dev.crashteam.keanalytics.db.model.tables.pojos.Reports
 import dev.crashteam.keanalytics.report.ReportFileService
 import dev.crashteam.keanalytics.report.ReportService
-import dev.crashteam.keanalytics.repository.mongo.ReportRepository
-import dev.crashteam.keanalytics.repository.mongo.UserRepository
+import dev.crashteam.keanalytics.repository.postgres.ReportRepository
+import dev.crashteam.keanalytics.repository.postgres.UserRepository
 import dev.crashteam.keanalytics.service.*
 import dev.crashteam.keanalytics.service.exception.UserSubscriptionGiveawayException
-import dev.crashteam.keanalytics.service.model.PromoCodeCheckCode
-import dev.crashteam.keanalytics.service.model.PromoCodeCreateData
 import dev.crashteam.openapi.keanalytics.api.*
 import dev.crashteam.openapi.keanalytics.model.*
 import kotlinx.coroutines.Dispatchers
@@ -16,7 +14,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
-import org.springframework.core.convert.ConversionService
 import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
@@ -48,10 +45,8 @@ class MarketDbApiV2Controller(
     private val reportService: ReportService,
     private val reportRepository: ReportRepository,
     private val productServiceAnalytics: ProductServiceAnalytics,
-    private val promoCodeService: PromoCodeService,
-    private val conversionService: ConversionService,
     private val userSubscriptionService: UserSubscriptionService,
-    private val productService: ProductService,
+    private val productService: ProductServiceV2,
 ) : CategoryApi, ProductApi, SellerApi, ReportApi, ReportsApi, PromoCodeApi, SubscriptionApi {
 
     override fun productOverallInfo(
@@ -63,18 +58,24 @@ class MarketDbApiV2Controller(
         toTime: OffsetDateTime,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<ProductOverallInfo200Response>> {
-        val fromTimeLocalDateTime = fromTime.toLocalDateTime()
-        val toTimeLocalDateTime = toTime.toLocalDateTime()
-        val productAdditionalInfo = productServiceAnalytics.getProductAdditionalInfo(
-            productId.toString(),
-            skuId.toString(),
-            fromTimeLocalDateTime,
-            toTimeLocalDateTime
-        ) ?: return ResponseEntity.notFound().build<ProductOverallInfo200Response>().toMono()
+        return checkRequestDaysPermission(
+            X_API_KEY,
+            fromTime.toLocalDateTime(),
+            toTime.toLocalDateTime()
+        ).flatMap { access ->
+            val fromTimeLocalDateTime = fromTime.toLocalDateTime()
+            val toTimeLocalDateTime = toTime.toLocalDateTime()
+            val productAdditionalInfo = productServiceAnalytics.getProductAdditionalInfo(
+                productId.toString(),
+                skuId.toString(),
+                fromTimeLocalDateTime,
+                toTimeLocalDateTime
+            ) ?: return@flatMap ResponseEntity.notFound().build<ProductOverallInfo200Response>().toMono()
 
-        return ResponseEntity.ok(ProductOverallInfo200Response().apply {
-            firstDiscovered = productAdditionalInfo.firstDiscovered.atOffset(ZoneOffset.UTC)
-        }).toMono()
+            return@flatMap ResponseEntity.ok(ProductOverallInfo200Response().apply {
+                firstDiscovered = productAdditionalInfo.firstDiscovered.atOffset(ZoneOffset.UTC)
+            }).toMono()
+        }
     }
 
     override fun productSkuHistory(
@@ -169,14 +170,17 @@ class MarketDbApiV2Controller(
         }
     }
 
-    override fun getSellerShops(sellerLink: String, exchange: ServerWebExchange): Mono<ResponseEntity<Flux<Seller>>> {
+    override fun getSellerShops(
+        sellerLink: String,
+        exchange: ServerWebExchange
+    ): Mono<ResponseEntity<Flux<Seller>>> {
         return ResponseEntity.ok(sellerService.findSellersByLink(sellerLink).map {
             Seller().apply {
                 this.title = it.title
                 this.link = it.link
                 this.accountId = it.accountId
             }
-        }).toMono().doOnError { log.error(it) { "Failed to get seller shops" } }
+        }.toFlux()).toMono().doOnError { log.error(it) { "Failed to get seller shops" } }
     }
 
     override fun getReportByReportId(reportId: String, exchange: ServerWebExchange): Mono<ResponseEntity<Resource>> =
@@ -203,56 +207,52 @@ class MarketDbApiV2Controller(
             ?: return ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
         val idempotenceKey = exchange.request.headers["Idempotence-Key"]?.first()
             ?: return ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
-        return userRepository.findByApiKey_HashKey(apiKey).flatMap { userDocument ->
-            // Check report period permission
-            val checkDaysAccess = userRestrictionService.checkDaysAccess(userDocument, period)
-            if (checkDaysAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
-                return@flatMap ResponseEntity.status(HttpStatus.FORBIDDEN).build<GetReportBySeller200Response>()
-                    .toMono()
-            }
+        val user = userRepository.findByApiKey_HashKey(apiKey)
+            ?: return ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
+        // Check report period permission
+        val checkDaysAccess = userRestrictionService.checkDaysAccess(user, period)
+        if (checkDaysAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build<GetReportBySeller200Response>().toMono()
+        }
 
-            // Check daily report count permission
-            return@flatMap reportService.getUserShopReportDailyReportCountV2(userDocument.userId).defaultIfEmpty(0)
-                .flatMap { reportCount ->
-                    val checkReportAccess =
-                        userRestrictionService.checkShopReportAccess(userDocument, reportCount?.toInt() ?: 0)
-                    if (checkReportAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
-                        return@flatMap ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                            .build<GetReportBySeller200Response>().toMono()
-                    }
+        // Check daily report count permission
+        val reportCount =
+            reportService.getUserShopReportDailyReportCountV2(user.userId)
 
-                    // Save report job
-                    return@flatMap reportRepository.findByRequestIdAndSellerLink(idempotenceKey, sellerLink)
-                        .flatMap { report ->
-                            ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                this.reportId = report.reportId
-                                this.jobId = UUID.fromString(report.jobId)
-                            }).toMono()
-                        }.switchIfEmpty(Mono.defer {
-                            val jobId = UUID.randomUUID().toString()
-                            reportRepository.save(
-                                ReportDocument(
-                                    reportId = null,
-                                    requestId = idempotenceKey,
-                                    jobId = jobId,
-                                    userId = userDocument.userId,
-                                    period = null,
-                                    interval = period,
-                                    createdAt = LocalDateTime.now(),
-                                    sellerLink = sellerLink,
-                                    categoryPublicId = null,
-                                    reportType = ReportType.SELLER,
-                                    status = ReportStatus.PROCESSING,
-                                    version = ReportVersion.V2
-                                )
-                            ).flatMap {
-                                ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                    this.jobId = UUID.fromString(jobId)
-                                }).toMono()
-                            }
-                        })
-                }
-        }.doOnError { log.error(it) { "Failed to generate report by seller" } }
+        val checkReportAccess =
+            userRestrictionService.checkShopReportAccess(user, reportCount)
+        if (checkReportAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .build<GetReportBySeller200Response>().toMono()
+        }
+
+        // Save report job
+        val report = reportRepository.findByRequestIdAndSellerLink(idempotenceKey, sellerLink)
+        return if (report != null) {
+            ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                this.reportId = report.reportId
+                this.jobId = UUID.fromString(report.jobId)
+            }).toMono()
+        } else {
+            val jobId = UUID.randomUUID().toString()
+            reportRepository.saveNewSellerReport(
+                Reports(
+                    idempotenceKey,
+                    jobId,
+                    user.userId,
+                    period,
+                    LocalDateTime.now(),
+                    sellerLink,
+                    null,
+                    dev.crashteam.keanalytics.db.model.enums.ReportType.seller,
+                    dev.crashteam.keanalytics.db.model.enums.ReportStatus.processing,
+                    null
+                )
+            )
+            ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                this.jobId = UUID.fromString(jobId)
+            }).toMono()
+        }
     }
 
     override fun getReportByCategory(
@@ -265,80 +265,76 @@ class MarketDbApiV2Controller(
             ?: return ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
         val idempotenceKey = exchange.request.headers["Idempotence-Key"]?.first()
             ?: return ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
-        return userRepository.findByApiKey_HashKey(apiKey).flatMap { userDocument ->
-            // Check report period permission
-            val checkDaysAccess = userRestrictionService.checkDaysAccess(userDocument, period)
-            if (checkDaysAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
-                return@flatMap ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .build<GetReportBySeller200Response>().toMono()
-            }
+        val user = userRepository.findByApiKey_HashKey(apiKey)
+            ?: return ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
+        // Check report period permission
+        val checkDaysAccess = userRestrictionService.checkDaysAccess(user, period)
+        if (checkDaysAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .build<GetReportBySeller200Response>().toMono()
+        }
 
-            // Check daily report count permission
-            return@flatMap reportService.getUserCategoryReportDailyReportCountV2(userDocument.userId).defaultIfEmpty(0)
-                .flatMap { userReportDailyReportCount ->
-                    val checkReportAccess = userRestrictionService.checkCategoryReportAccess(
-                        userDocument, userReportDailyReportCount?.toInt() ?: 0
-                    )
-                    if (checkReportAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
-                        return@flatMap ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                            .build<GetReportBySeller200Response>().toMono()
-                    }
+        // Check daily report count permission
+        val userReportDailyReportCount =
+            reportService.getUserCategoryReportDailyReportCountV2(user.userId)
+        val checkReportAccess = userRestrictionService.checkCategoryReportAccess(
+            user, userReportDailyReportCount
+        )
+        if (checkReportAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .build<GetReportBySeller200Response>().toMono()
+        }
 
-                    val jobId = UUID.randomUUID().toString()
-                    reportRepository.findByRequestIdAndCategoryPublicId(idempotenceKey, categoryId)
-                        .flatMap { report ->
-                            return@flatMap ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                this.jobId = UUID.fromString(jobId)
-                                this.reportId = report.reportId
-                            }).toMono()
-                        }.switchIfEmpty(Mono.defer {
-                            reportRepository.save(
-                                ReportDocument(
-                                    reportId = null,
-                                    requestId = idempotenceKey,
-                                    jobId = jobId,
-                                    userId = userDocument.userId,
-                                    period = null,
-                                    interval = period,
-                                    createdAt = LocalDateTime.now(),
-                                    sellerLink = null,
-                                    categoryPublicId = categoryId,
-                                    reportType = ReportType.CATEGORY,
-                                    status = ReportStatus.PROCESSING,
-                                    version = ReportVersion.V2
-                                )
-                            ).flatMap {
-                                ResponseEntity.ok().body(GetReportBySeller200Response().apply {
-                                    this.jobId = UUID.fromString(jobId)
-                                }).toMono()
-                            }
-                        })
-                }.switchIfEmpty(Mono.defer {
-                    log.warn { "Failed to generate report by category. Category not found" }
-                    ResponseEntity.badRequest().build<GetReportBySeller200Response>().toMono()
-                })
-        }.doOnError { log.error(it) { "Failed to generate report by category" } }
+        val jobId = UUID.randomUUID().toString()
+        val report =
+            reportRepository.findByRequestIdAndCategoryPublicId(idempotenceKey, categoryId)
+        if (report != null) {
+            return ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                this.jobId = UUID.fromString(jobId)
+                this.reportId = report.reportId
+            }).toMono()
+        } else {
+            reportRepository.saveNewCategoryReport(
+                Reports(
+                    idempotenceKey,
+                    jobId,
+                    user.userId,
+                    period,
+                    LocalDateTime.now(),
+                    null,
+                    categoryId.toString(),
+                    dev.crashteam.keanalytics.db.model.enums.ReportType.category,
+                    dev.crashteam.keanalytics.db.model.enums.ReportStatus.processing,
+                    null
+                )
+            )
+            return ResponseEntity.ok().body(GetReportBySeller200Response().apply {
+                this.jobId = UUID.fromString(jobId)
+            }).toMono()
+        }
     }
 
     override fun getReportStateByJobId(
         jobId: UUID,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<GetReportStateByJobId200Response>> {
-        return reportRepository.findByJobId(jobId.toString()).flatMap { reportDocument: ReportDocument ->
+        val report = reportRepository.findByJobId(jobId.toString())
+        if (report != null) {
             val responseBody = GetReportStateByJobId200Response().apply {
-                this.reportId = reportDocument.reportId
-                this.jobId = UUID.fromString(reportDocument.jobId)
-                this.status = reportDocument.status.name.lowercase()
-                this.interval = reportDocument.interval ?: -1
-                this.reportType = reportDocument.reportType?.name ?: "unknown"
-                this.createdAt = reportDocument.createdAt.atOffset(ZoneOffset.UTC)
-                this.sellerLink = reportDocument.sellerLink
-                this.categoryId = reportDocument.categoryPublicId
+                this.reportId = report.reportId
+                this.jobId = UUID.fromString(report.jobId)
+                this.status = report.status.name.lowercase()
+                this.interval = report.interval ?: -1
+                this.reportType = report.reportType?.name ?: "unknown"
+                this.createdAt = report.createdAt.atOffset(ZoneOffset.UTC)
+                this.sellerLink = report.sellerLink
+                this.categoryId = report.categoryId.toLong()
             }
 
-            return@flatMap ResponseEntity.ok(responseBody).toMono()
-        }.switchIfEmpty(ResponseEntity.notFound().build<GetReportStateByJobId200Response>().toMono())
-            .doOnError { log.error(it) { "Failed get report by jobId. JobId=$jobId" } }
+            return ResponseEntity.ok(responseBody).toMono()
+        } else {
+            return ResponseEntity.notFound().build<GetReportStateByJobId200Response>().toMono()
+        }
     }
 
     override fun getReports(
@@ -347,29 +343,26 @@ class MarketDbApiV2Controller(
     ): Mono<ResponseEntity<Flux<Report>>> {
         val apiKey = exchange.request.headers["X-API-KEY"]?.first()
             ?: return ResponseEntity.badRequest().build<Flux<Report>>().toMono()
-        return userRepository.findByApiKey_HashKey(apiKey).flatMap { userDocument ->
-            return@flatMap reportRepository.findByUserIdAndCreatedAtFromTime(
-                userDocument.userId,
-                fromTime.toLocalDateTime()
-            )
-                .map { reportDoc ->
-                    Report().apply {
-                        reportId = reportDoc.reportId
-                        jobId = UUID.fromString(reportDoc.jobId)
-                        status = reportDoc.status.name.lowercase()
-                        interval = reportDoc.interval ?: -1
-                        reportType = reportDoc.reportType?.name ?: "unknown"
-                        createdAt = reportDoc.createdAt.atOffset(ZoneOffset.UTC)
-                        sellerLink = reportDoc.sellerLink
-                        categoryId = reportDoc.categoryPublicId
-                    }
-                }.collectList()
-        }.switchIfEmpty(emptyList<Report>().toMono()).flatMap { reportDocuments ->
-            if (reportDocuments.isNullOrEmpty()) {
-                return@flatMap ResponseEntity.notFound().build<Flux<Report>>().toMono()
+        val user = userRepository.findByApiKey_HashKey(apiKey)
+            ?: return ResponseEntity.badRequest().build<Flux<Report>>().toMono()
+        val reports =
+            reportRepository.findByUserIdAndCreatedAtFromTime(user.userId, fromTime.toLocalDateTime()).map {
+                Report().apply {
+                    reportId = it.reportId
+                    jobId = UUID.fromString(it.jobId)
+                    status = it.status.name.lowercase()
+                    interval = it.interval ?: -1
+                    reportType = it.reportType?.name ?: "unknown"
+                    createdAt = it.createdAt.atOffset(ZoneOffset.UTC)
+                    sellerLink = it.sellerLink
+                    categoryId = it.categoryId.toLong()
+                }
             }
-            ResponseEntity.ok(reportDocuments.toFlux()).toMono()
-        }.doOnError { log.error(it) { "Failed get reports" } }
+        if (reports.isEmpty()) {
+            return ResponseEntity.notFound().build<Flux<Report>>().toMono()
+        } else {
+            return ResponseEntity.ok(reports.toFlux()).toMono()
+        }
     }
 
     override fun categoryOverallInfo(
@@ -444,84 +437,22 @@ class MarketDbApiV2Controller(
         }
     }
 
-    override fun createPromoCode(
-        xRequestID: UUID,
-        promoCode: Mono<PromoCode>,
-        exchange: ServerWebExchange
-    ): Mono<ResponseEntity<PromoCode>> {
-        return exchange.getPrincipal<Principal>().flatMap { principal ->
-            promoCode.flatMap { promoCode ->
-                return@flatMap userRepository.findByUserId(principal.name).flatMap { userDocument ->
-                    if (userDocument.role != UserRole.ADMIN) {
-                        return@flatMap ResponseEntity.status(HttpStatus.FORBIDDEN).build<PromoCode>().toMono()
-                    }
-                    promoCodeService.createPromoCode(
-                        PromoCodeCreateData(
-                            description = promoCode.description,
-                            validUntil = promoCode.validUntil.toLocalDateTime(),
-                            useLimit = promoCode.useLimit,
-                            type = when (promoCode.context.type) {
-                                PromoCodeContext.TypeEnum.ADDITIONAL_TIME -> PromoCodeType.ADDITIONAL_DAYS
-                                PromoCodeContext.TypeEnum.DISCOUNT -> PromoCodeType.DISCOUNT
-                                else -> PromoCodeType.DISCOUNT
-                            },
-                            discount = if (promoCode.context is DiscountPromoCode) {
-                                (promoCode.context as DiscountPromoCode).discount.toShort()
-                            } else null,
-                            additionalDays = if (promoCode.context is AdditionalTimePromoCode) {
-                                (promoCode.context as AdditionalTimePromoCode).additionalDays
-                            } else null,
-                            prefix = promoCode.prefix,
-                        )
-                    ).flatMap { promoCodeDocument ->
-                        ResponseEntity.ok(conversionService.convert(promoCodeDocument, PromoCode::class.java)).toMono()
-                    }
-                }
-            }
-        }
-    }
-
-    override fun checkPromoCode(
-        xRequestID: UUID,
-        promoCode: String,
-        exchange: ServerWebExchange
-    ): Mono<ResponseEntity<PromoCodeCheckResult>> {
-        return exchange.getPrincipal<Principal>().flatMap { _ ->
-            promoCodeService.checkPromoCode(promoCode).flatMap { promoCodeCheckResult ->
-                val codeCheckResult = PromoCodeCheckResult().apply {
-                    code = when (promoCodeCheckResult.checkCode) {
-                        PromoCodeCheckCode.INVALID_USE_LIMIT -> PromoCodeCheckResult.CodeEnum.INVALIDPROMOCODEUSELIMIT
-                        PromoCodeCheckCode.INVALID_DATE_LIMIT -> PromoCodeCheckResult.CodeEnum.INVALIDPROMOCODEDATE
-                        PromoCodeCheckCode.NOT_FOUND -> PromoCodeCheckResult.CodeEnum.NOTFOUNDPROMOCODE
-                        PromoCodeCheckCode.VALID -> PromoCodeCheckResult.CodeEnum.VALIDPROMOCODE
-                    }
-                    message = promoCodeCheckResult.description
-                }
-                ResponseEntity.ok(codeCheckResult).toMono()
-            }
-        }
-    }
-
     override fun giveawayDemoSubscription(
         xRequestID: UUID,
         giveawayUserDemoRequest: Mono<GiveawayUserDemoRequest>,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<Void>> {
         return exchange.getPrincipal<Principal>().flatMap {
-            userRepository.findByUserId(it.name).flatMap { userDocument ->
-                giveawayUserDemoRequest.flatMap { giveawayUserDemoRequest ->
-                    if (userDocument.role != UserRole.ADMIN) {
-                        ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
-                    } else {
-                        try {
-                            userSubscriptionService.giveawayDemoSubscription(giveawayUserDemoRequest.userId).flatMap {
-                                ResponseEntity.ok().build<Void>().toMono()
-                            }.doOnError {
-                                ResponseEntity.badRequest().build<Void>().toMono()
-                            }
-                        } catch (e: UserSubscriptionGiveawayException) {
-                            ResponseEntity.badRequest().build<Void>().toMono()
-                        }
+            val user = userRepository.findByUserId(it.name)!!
+            giveawayUserDemoRequest.flatMap { giveawayUserDemoRequest ->
+                if (user.role != "ADMIN") {
+                    ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
+                } else {
+                    try {
+                        userSubscriptionService.giveawayDemoSubscription(giveawayUserDemoRequest.userId)
+                        ResponseEntity.ok().build<Void>().toMono()
+                    } catch (e: UserSubscriptionGiveawayException) {
+                        ResponseEntity.badRequest().build<Void>().toMono()
                     }
                 }
             }
@@ -538,12 +469,12 @@ class MarketDbApiV2Controller(
         toDate: LocalDate,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<CategoryProductPosition200Response>> {
-        val productPositions = productService.getProductPositions(
+        val productPositions = productService.getProductPosition(
             categoryId,
             productId,
             skuId,
-            fromDate,
-            toDate
+            fromDate.atStartOfDay(),
+            toDate.atStartOfDay()
         )
         return ResponseEntity.ok(CategoryProductPosition200Response().apply {
             this.categoryId = categoryId
@@ -565,17 +496,16 @@ class MarketDbApiV2Controller(
     ): Mono<Boolean> {
         val daysCount = ChronoUnit.DAYS.between(fromTime, toTime)
         if (daysCount <= 0) return true.toMono()
-        return userRepository.findByApiKey_HashKey(apiKey).flatMap { user ->
-            val checkDaysAccess = userRestrictionService.checkDaysAccess(user, daysCount.toInt())
-            if (checkDaysAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
-                return@flatMap false.toMono()
-            }
-            val checkDaysHistoryAccess = userRestrictionService.checkDaysHistoryAccess(user, fromTime)
-            if (checkDaysHistoryAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
-                return@flatMap false.toMono()
-            }
-            true.toMono()
+        val user = userRepository.findByApiKey_HashKey(apiKey)!!
+        val checkDaysAccess = userRestrictionService.checkDaysAccess(user, daysCount.toInt())
+        if (checkDaysAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
+            return false.toMono()
         }
+        val checkDaysHistoryAccess = userRestrictionService.checkDaysHistoryAccess(user, fromTime)
+        if (checkDaysHistoryAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
+            return false.toMono()
+        }
+        return true.toMono()
     }
 
 }
