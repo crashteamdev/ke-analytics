@@ -158,7 +158,7 @@ class CHCategoryRepository(
                 result_tuple.1 AS name,
                 result_tuple.2 AS parent_id,
                 dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 1) AS children_ids,
-                dictGet('kazanex.categories_hierarchical_dictionary', ('title', 'parentCategoryId'), ?) AS result_tuple
+                dictGet('kazanex.categories_hierarchical_dictionary', ('title', 'parent_category_id'), ?) AS result_tuple
             FROM system.numbers
             LIMIT 1
         """
