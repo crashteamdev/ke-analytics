@@ -1,14 +1,11 @@
 package dev.crashteam.keanalytics.controller
 
-import kotlinx.coroutines.reactor.awaitSingleOrNull
-import mu.KotlinLogging
-import dev.crashteam.keanalytics.controller.model.ReferralCodeView
 import dev.crashteam.keanalytics.controller.model.UserApiKey
 import dev.crashteam.keanalytics.controller.model.UserSubscriptionView
 import dev.crashteam.keanalytics.extensions.mapToUserSubscription
 import dev.crashteam.keanalytics.repository.postgres.UserRepository
 import dev.crashteam.keanalytics.service.UserService
-import org.springframework.http.HttpStatus
+import mu.KotlinLogging
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
@@ -50,7 +47,7 @@ class UserController(
         return ResponseEntity.ok(UserApiKey(apiKey.hashKey))
     }
 
-    @GetMapping("/subscription")
+    @GetMapping("/user/subscription")
     suspend fun getSubscription(principal: Principal): ResponseEntity<UserSubscriptionView> {
         log.debug { "Get user subscription. User=${principal.name}" }
         val user = userService.findUser(principal.name)
@@ -69,7 +66,7 @@ class UserController(
     }
 
 
-    @GetMapping("/subscription/apikey")
+    @GetMapping("/user/subscription/apikey")
     suspend fun getSubscriptionWithApiKey(
         @RequestHeader(name = "X-API-KEY", required = true) apiKey: String,
     ): ResponseEntity<UserSubscriptionView> {
