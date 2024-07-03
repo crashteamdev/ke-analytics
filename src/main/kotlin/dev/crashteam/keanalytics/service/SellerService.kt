@@ -1,18 +1,17 @@
 package dev.crashteam.keanalytics.service
 
-import dev.crashteam.keanalytics.domain.mongo.SellerDetailDocument
-import dev.crashteam.keanalytics.repository.mongo.SellerRepository
+import dev.crashteam.keanalytics.db.model.tables.pojos.Sellers
+import dev.crashteam.keanalytics.repository.postgres.SellerRepository
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
 
 @Service
 class SellerService(
     private val sellerRepository: SellerRepository
 ) {
 
-    fun findSellersByLink(sellerLink: String): Flux<SellerDetailDocument> {
-        return sellerRepository.findByLink(sellerLink).flatMapMany { sellerDetailDocument ->
-            sellerRepository.findByAccountId(sellerDetailDocument.accountId)
-        }
+    fun findSellersByLink(sellerLink: String): List<Sellers> {
+        val seller = sellerRepository.findBySellerLink(sellerLink) ?: return emptyList()
+        return sellerRepository.findByAccountId(seller.accountId)
     }
 }
+

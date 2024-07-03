@@ -1,6 +1,6 @@
 package dev.crashteam.keanalytics.config
 
-import dev.crashteam.keanalytics.repository.mongo.UserRepository
+import dev.crashteam.keanalytics.repository.postgres.UserRepository
 import dev.crashteam.keanalytics.repository.redis.ApiKeyUserSessionInfo
 import dev.crashteam.keanalytics.security.ApiKeyAuthHandlerFilter
 import dev.crashteam.keanalytics.security.ApiUserLimiterFilter

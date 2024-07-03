@@ -2,47 +2,31 @@ package dev.crashteam.keanalytics.stream.listener.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import kotlinx.coroutines.reactor.awaitSingleOrNull
+import dev.crashteam.keanalytics.repository.postgres.CategoryRepository
+import dev.crashteam.keanalytics.db.model.tables.pojos.CategoryHierarchical
+import dev.crashteam.keanalytics.stream.model.KeCategoryStreamRecord
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import dev.crashteam.keanalytics.domain.mongo.CategoryDocument
-import dev.crashteam.keanalytics.domain.mongo.CategoryTreeDocument
-import dev.crashteam.keanalytics.repository.mongo.CategoryDao
-import dev.crashteam.keanalytics.repository.mongo.CategoryTreeDao
-import dev.crashteam.keanalytics.stream.model.KeCategoryStreamRecord
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.stream.StreamListener
 import org.springframework.stereotype.Component
-import java.time.LocalDateTime
 
 private val log = KotlinLogging.logger {}
 
 @Component
 class KeCategoryStreamListener(
     private val objectMapper: ObjectMapper,
-    private val categoryDao: CategoryDao,
-    private val categoryTreeDao: CategoryTreeDao,
+    private val categoryRepository: CategoryRepository,
 ) : StreamListener<String, ObjectRecord<String, String>> {
 
     override fun onMessage(message: ObjectRecord<String, String>) {
         runBlocking {
             try {
                 val categoryStreamRecord = objectMapper.readValue<KeCategoryStreamRecord>(message.value)
-                log.info { "Consume category record from stream." +
-                        " categoryId=${categoryStreamRecord.id} childCount=${categoryStreamRecord.children?.size}" }
-                val categoryDocument = CategoryDocument(
-                    categoryStreamRecord.id,
-                    null,
-                    categoryStreamRecord.adult,
-                    categoryStreamRecord.eco,
-                    categoryStreamRecord.title.trim(),
-                    null,
-                    LocalDateTime.now()
-                )
-                categoryDao.saveCategory(categoryDocument).awaitSingleOrNull()
-                saveChildCategories(categoryStreamRecord, categoryStreamRecord.children ?: emptyList(), null)
-
-                // Save hierarchical category view
+                log.info {
+                    "Consume category record from stream." +
+                            " categoryId=${categoryStreamRecord.id} childCount=${categoryStreamRecord.children?.size}"
+                }
                 saveHierarchicalRootCategory(categoryStreamRecord)
             } catch (e: Exception) {
                 log.error(e) { "Exception during handle category message" }
@@ -50,39 +34,16 @@ class KeCategoryStreamListener(
         }
     }
 
-    private suspend fun saveChildCategories(
-        rootCategory: KeCategoryStreamRecord,
-        children: List<KeCategoryStreamRecord>,
-        path: String?,
-    ) {
-        for (childCategory in children) {
-            val categoryDocument = CategoryDocument(
-                childCategory.id,
-                null,
-                childCategory.adult,
-                childCategory.eco,
-                childCategory.title.trim(),
-                if (path == null) {
-                    ",${rootCategory.title.trim()},${childCategory.title.trim()},"
-                } else "$path${childCategory.title.trim()},",
-                LocalDateTime.now()
-            )
-            categoryDao.saveCategory(categoryDocument).awaitSingleOrNull()
-            if (childCategory.children?.isNotEmpty() == true) {
-                saveChildCategories(childCategory, childCategory.children, categoryDocument.path)
-            }
-        }
-    }
-
     private suspend fun saveHierarchicalRootCategory(
         rootCategoryRecord: KeCategoryStreamRecord,
     ) {
-        val rootCategory = CategoryTreeDocument(
-            categoryId = rootCategoryRecord.id,
-            parentCategoryId = 0,
-            title = rootCategoryRecord.title
+        val rootCategory = CategoryHierarchical(
+            rootCategoryRecord.id,
+            0,
+            rootCategoryRecord.title
         )
-        categoryTreeDao.saveCategory(rootCategory).awaitSingleOrNull()
+        log.info { "Save root category: $rootCategory" }
+        categoryRepository.save(rootCategory)
         if (rootCategoryRecord.children?.isNotEmpty() == true) {
             saveHierarchicalChildCategory(rootCategoryRecord, rootCategoryRecord.children)
         }
@@ -93,12 +54,12 @@ class KeCategoryStreamListener(
         childCategoryRecords: List<KeCategoryStreamRecord>
     ) {
         for (childrenRecord in childCategoryRecords) {
-            val childCategory = CategoryTreeDocument(
-                categoryId = childrenRecord.id,
-                parentCategoryId = currentCategoryRecord.id,
-                title = childrenRecord.title,
+            val childCategory = CategoryHierarchical(
+                childrenRecord.id,
+                currentCategoryRecord.id,
+                childrenRecord.title
             )
-            categoryTreeDao.saveCategory(childCategory).awaitSingleOrNull()
+            categoryRepository.save(childCategory)
             if (childrenRecord.children?.isNotEmpty() == true) {
                 saveHierarchicalChildCategory(childrenRecord, childrenRecord.children)
             }

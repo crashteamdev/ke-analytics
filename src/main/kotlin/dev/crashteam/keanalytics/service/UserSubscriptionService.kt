@@ -1,35 +1,36 @@
 package dev.crashteam.keanalytics.service
 
-import dev.crashteam.keanalytics.domain.mongo.SubscriptionDocument
-import dev.crashteam.keanalytics.domain.mongo.UserDocument
-import dev.crashteam.keanalytics.repository.mongo.UserRepository
+import dev.crashteam.keanalytics.db.model.enums.SubscriptionType
+import dev.crashteam.keanalytics.db.model.tables.pojos.Users
 import dev.crashteam.keanalytics.service.exception.UserSubscriptionGiveawayException
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Mono
-import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Service
 class UserSubscriptionService(
-    private val userRepository: UserRepository,
+    private val userRepository: dev.crashteam.keanalytics.repository.postgres.UserRepository,
 ) {
 
-    fun giveawayDemoSubscription(userId: String): Mono<UserDocument> {
-        return userRepository.findByUserId(userId).flatMap { userDocument ->
-            if (userDocument == null) {
-                return@flatMap Mono.error(UserSubscriptionGiveawayException("User $userId not found"))
+    fun giveawayDemoSubscription(userId: String) {
+        val user = userRepository.findByUserId(userId)
+        if (user?.subscriptionType != null) {
+            throw UserSubscriptionGiveawayException("User $userId already had subscription")
+        }
+        if (user == null) {
+            val newUser = Users().apply {
+                this.userId = userId
+                this.subscriptionCreatedAt = LocalDateTime.now()
+                this.subscriptionType = SubscriptionType.demo
+                this.subscriptionEndAt = this.subscriptionCreatedAt.plusDays(3)
             }
-            if (userDocument.subscription != null) {
-                return@flatMap Mono.error(UserSubscriptionGiveawayException("User $userId already had subscription"))
-            }
-            val updateUserDocument = userDocument.copy(
-                subscription = SubscriptionDocument(
-                    subType = "demo",
-                    createdAt = LocalDate.now().atStartOfDay(),
-                    endAt = LocalDate.now().atStartOfDay().plusDays(5)
-                )
+            userRepository.save(newUser)
+        } else {
+            userRepository.updateSubscription(
+                userId,
+                SubscriptionType.demo,
+                LocalDateTime.now(),
+                LocalDateTime.now().plusDays(3)
             )
-            userRepository.save(updateUserDocument)
         }
     }
-
 }

@@ -31,8 +31,6 @@ spring:
   main:
     allow-bean-definition-overriding: true
   data:
-    mongodb:
-      uri: mongodb://${MONGO_USER:kazanex}:${MONGO_PASSWORD:my5053strongPassword}@${MONGO_HOST:77.37.140.106}/${MONGO_DATABASE:kazanex}?authSource=kazanex&replicaSet=${MONGO_REPLICASET:marketdb}&tls=true&maxPoolSize=200
     redis:
       host: marketdb-redis-do-user-9153772-0.b.db.ondigitalocean.com
       port: 25061
@@ -40,24 +38,35 @@ spring:
       password: password
       ssl:
         enabled: false
+  datasource:
+    jdbcUrl: jdbc:postgresql://localhost:5432/ke-analytics
+    username: postgres
+    password: postgres
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org.quartz.scheduler.instanceName: ke-analytics
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.scheduler.skipUpdateCheck: true
+      org.quartz.scheduler.threadsInheritContextClassLoaderOfInitializer: true
+      org.quartz.threadPool.threadCount: 30
+      org.quartz.threadPool.threadPriority: 5
+      org.quartz.jobStore.isClustered: true
+      org.quartz.jobStore.misfireThreshold: 30000
+      org.quartz.jobStore.class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+      org.quartz.jobStore.useProperties: false
+      org.quartz.jobStore.tablePrefix: QRTZ_
   cache:
     cache-names:
       - ke-products-info
     redis:
       time-to-live: 60000
-  quartz:
-    properties:
-      org.quartz.scheduler.instanceName: KazanExpressorMasterScheduler
-      org.quartz.scheduler.instanceId: AUTO
-      org.quartz.scheduler.skipUpdateCheck: true
-      org.quartz.scheduler.threadsInheritContextClassLoaderOfInitializer: true
-      org.quartz.threadPool.threadCount: 30
-      org.quartz.jobStore.isClustered: true
-      org.quartz.jobStore.misfireThreshold: 30000
-      org.quartz.jobStore.class: com.novemberain.quartz.mongodb.MongoDBJobStore
-      org.quartz.jobStore.mongoUri: ${spring.data.mongodb.uri}
-      org.quartz.jobStore.dbName: kazanex
-      org.quartz.jobStore.collectionPrefix: qrtz
   security:
     oauth2:
       resourceserver:
@@ -105,17 +114,6 @@ redis:
       consumerGroup: ke-analytics-payment-group
       consumerName: ke-analytics-payment-consumer
 
-freekassa:
-  baseUrl: https://api.freekassa.ru
-  shopId: 38286
-  apiKey: fake-api-key
-  secretWordFirst: 'fake-first-secret-word'
-  secretWordSecond: 'fake-second-secret-word'
-
-youkassa:
-  shopId: 819837
-  key: 'test_6qE96u7LbOog1NcjX9AocDz8sviH_FIhQ25sO2Jz0Qk'
-
 clickhouse:
   url: "jdbc:clickhouse://${CLICKHOUSE_HOST:localhost}:${CLICKHOUSE_PORT:8443}/${CLICKHOUSE_DB:uzum}"
   user: "dbuser"
@@ -126,6 +124,10 @@ clickhouse:
   ssl: false
   liquibase:
     change-log: "classpath:db/changelog/db.ch.changelog-main.yml"
+
+postgresql:
+  liquibase:
+    change-log: "classpath:db/changelog/db.pg.changelog-main.yml"
 
 aws-stream:
   kinesisEndpoint: 'fake-endpoint'

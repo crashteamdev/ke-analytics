@@ -5,7 +5,7 @@ import dev.crashteam.keanalytics.extensions.toLocalDates
 import dev.crashteam.keanalytics.extensions.toRepositoryDomain
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortBy
 import dev.crashteam.keanalytics.repository.clickhouse.model.SortField
-import dev.crashteam.keanalytics.repository.mongo.UserRepository
+import dev.crashteam.keanalytics.repository.postgres.UserRepository
 import dev.crashteam.keanalytics.service.CategoryAnalyticsSortableDecorator
 import dev.crashteam.keanalytics.service.ProductServiceAnalytics
 import dev.crashteam.keanalytics.service.UserRestrictionService
@@ -300,7 +300,7 @@ class ExternalCategoryAnalyticsService(
         log.debug { "Check request days permission. userId=$userId; fromDate=$fromDate; toDate=$toDate" }
         val daysCount = ChronoUnit.DAYS.between(fromDate, toDate)
         if (daysCount <= 0) return true
-        val user = userRepository.findByUserId(userId).block()
+        val user = userRepository.findByUserId(userId)
             ?: throw IllegalStateException("User not found")
         val checkDaysAccess = userRestrictionService.checkDaysAccess(user, daysCount.toInt())
         if (checkDaysAccess == UserRestrictionService.RestrictionResult.PROHIBIT) {
