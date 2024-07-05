@@ -6,7 +6,7 @@ data class ApiKey(
     val prefix: String,
     val key: String,
     val hashKey: String,
-    val blocked: Boolean,
+    val blocked: Boolean? = false,
 )
 
 sealed class UserSubscription(val num: Int, val name: String) {
