@@ -5,6 +5,7 @@ import dev.crashteam.keanalytics.service.ProductServiceAnalytics
 import dev.crashteam.keanalytics.service.UserRestrictionService
 import dev.crashteam.openapi.gpt.analytics.api.GptApi
 import dev.crashteam.openapi.gpt.analytics.model.ProductSkuHistory
+import mu.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -18,6 +19,8 @@ import reactor.kotlin.core.publisher.toMono
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
+
+private val log = KotlinLogging.logger {}
 
 @RestController
 @RequestMapping(path = ["v1"], produces = [MediaType.APPLICATION_JSON_VALUE])
@@ -35,48 +38,32 @@ class GptController(
         toTime: OffsetDateTime,
         exchange: ServerWebExchange
     ): Mono<ResponseEntity<Flux<ProductSkuHistory>>> {
-        return checkRequestDaysPermission(
-            X_API_KEY,
+        log.info { "GPT request. productId=$productId; skuId=$skuId; fromTime=$fromTime; toTime=$toTime" }
+        val productAnalytics = productServiceAnalytics.getProductAnalytics(
+            productId,
+            skuId,
             fromTime.toLocalDateTime(),
             toTime.toLocalDateTime()
-        ).flatMap { access ->
-            if (access == false) {
-                return@flatMap ResponseEntity.status(HttpStatus.FORBIDDEN).build<Flux<ProductSkuHistory>>().toMono()
-            }
-            val productAnalytics = productServiceAnalytics.getProductAnalytics(
-                productId,
-                skuId,
-                fromTime.toLocalDateTime(),
-                toTime.toLocalDateTime()
-            )
-            if (productAnalytics.isEmpty()) {
-                return@flatMap ResponseEntity.notFound().build<Flux<ProductSkuHistory>>().toMono()
-            }
-            val productSkuHistoryList = productAnalytics.map {
-                ProductSkuHistory().apply {
-                    this.productId = productId
-                    this.skuId = skuId
-                    this.name = it.title
-                    this.orderAmount = it.orderAmount
-                    this.reviewsAmount = it.reviewAmount
-                    this.totalAvailableAmount = it.totalAvailableAmount
-                    this.fullPrice = it.fullPrice?.toDouble()
-                    this.purchasePrice = it.purchasePrice.toDouble()
-                    this.availableAmount = it.availableAmount
-                    this.salesAmount = it.salesAmount.toDouble()
-                    this.photoKey = it.photoKey
-                    this.date = it.date
-                }
-            }
-            ResponseEntity.ok(productSkuHistoryList.toFlux()).toMono()
+        )
+        if (productAnalytics.isEmpty()) {
+            return ResponseEntity.notFound().build<Flux<ProductSkuHistory>>().toMono()
         }
-    }
-
-    private fun checkRequestDaysPermission(
-        apiKey: String,
-        fromTime: LocalDateTime,
-        toTime: LocalDateTime
-    ): Mono<Boolean> {
-        return true.toMono()
+        val productSkuHistoryList = productAnalytics.map {
+            ProductSkuHistory().apply {
+                this.productId = productId
+                this.skuId = skuId
+                this.name = it.title
+                this.orderAmount = it.orderAmount
+                this.reviewsAmount = it.reviewAmount
+                this.totalAvailableAmount = it.totalAvailableAmount
+                this.fullPrice = it.fullPrice?.toDouble()
+                this.purchasePrice = it.purchasePrice.toDouble()
+                this.availableAmount = it.availableAmount
+                this.salesAmount = it.salesAmount.toDouble()
+                this.photoKey = it.photoKey
+                this.date = it.date
+            }
+        }
+        return ResponseEntity.ok(productSkuHistoryList.toFlux()).toMono()
     }
 }
