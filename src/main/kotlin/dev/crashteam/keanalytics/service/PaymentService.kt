@@ -58,19 +58,24 @@ class PaymentService(
         paymentStatus: String,
         currencyId: String?,
     ) {
+        log.info {
+            "Save user with subscription. userId=${user?.userId}. paymentStatus=$paymentStatus"
+        }
         val subscriptionType = userSubscription.name.mapToEntityUserSubscription()
         if (user == null) {
-            Users(
-                userId,
-                null,
-                null,
-                null,
-                null,
-                subscriptionType,
-                LocalDateTime.now(),
-                LocalDateTime.now().plusDays(subscriptionDays),
-                null,
-                null,
+            userRepository.save(
+                Users(
+                    userId,
+                    null,
+                    null,
+                    null,
+                    null,
+                    subscriptionType,
+                    LocalDateTime.now(),
+                    LocalDateTime.now().plusDays(subscriptionDays),
+                    null,
+                    null,
+                )
             )
         } else {
             val currentTime = LocalDateTime.now()
