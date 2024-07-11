@@ -49,8 +49,8 @@ class KeProductItemStreamListener(
                         Sellers(
                             it.seller.id,
                             it.seller.accountId,
+                            it.seller.sellerLink,
                             it.seller.sellerTitle,
-                            it.seller.sellerLink
                         )
                     }.toSet()
                     sellerRepository.saveBatch(sellerDetailDocuments)
