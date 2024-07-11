@@ -119,99 +119,6 @@ class RedisConfig(
         }
     }
 
-    @Bean
-    fun keProductSubscription(
-        redisConnectionFactory: ReactiveRedisConnectionFactory
-    ): StreamReceiver<String, ObjectRecord<String, String>> {
-        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
-            .targetType(String::class.java).build()
-        try {
-//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
-//                ByteBuffer.wrap(redisProperties.stream.keProductInfo.streamName.toByteArray()),
-//                redisProperties.stream.keProductInfo.consumerGroup
-//            )?.subscribe()
-            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
-                ByteBuffer.wrap(redisProperties.stream.keProductInfo.streamName.toByteArray()),
-                redisProperties.stream.keProductInfo.consumerGroup,
-                ReadOffset.from("0-0"),
-                true
-            ).subscribe()
-        } catch (e: RedisSystemException) {
-            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.keProductInfo.consumerGroup}" }
-        }
-        return StreamReceiver.create(redisConnectionFactory, options)
-    }
-
-    @Bean
-    fun keProductPositionSubscription(
-        redisConnectionFactory: ReactiveRedisConnectionFactory
-    ): StreamReceiver<String, ObjectRecord<String, String>> {
-        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
-            .targetType(String::class.java).build()
-        try {
-//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
-//                ByteBuffer.wrap(redisProperties.stream.keProductPosition.streamName.toByteArray()),
-//                redisProperties.stream.keProductPosition.consumerGroup
-//            )?.subscribe()
-            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
-                ByteBuffer.wrap(redisProperties.stream.keProductPosition.streamName.toByteArray()),
-                redisProperties.stream.keProductPosition.consumerGroup,
-                ReadOffset.from("0-0"),
-                true
-            ).subscribe()
-        } catch (e: RedisSystemException) {
-            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.keProductPosition.consumerGroup}" }
-        }
-        return StreamReceiver.create(redisConnectionFactory, options)
-    }
-
-    @Bean
-    fun keCategorySubscription(
-        redisConnectionFactory: ReactiveRedisConnectionFactory
-    ): StreamReceiver<String, ObjectRecord<String, String>> {
-        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
-            .targetType(String::class.java).build()
-        try {
-//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
-//                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
-//                redisProperties.stream.keCategoryInfo.consumerGroup
-//            )?.subscribe()
-            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
-                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
-                redisProperties.stream.keCategoryInfo.consumerGroup,
-                ReadOffset.from("0-0"),
-                true
-            ).subscribe()
-        } catch (e: RedisSystemException) {
-            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.keCategoryInfo.consumerGroup}" }
-        }
-        return StreamReceiver.create(redisConnectionFactory, options)
-    }
-
-//    @Bean
-//    fun paymentSubscription(
-//        redisConnectionFactory: ReactiveRedisConnectionFactory
-//    ): StreamReceiver<String, ObjectRecord<String, ByteArray>> {
-//        val options = StreamReceiver.StreamReceiverOptions.builder().pollTimeout(Duration.ofMillis(100))
-//            .targetType(ByteArray::class.java).build()
-//        try {
-////            redisConnectionFactory.reactiveConnection.streamCommands().xGroupDestroy(
-////                ByteBuffer.wrap(redisProperties.stream.keCategoryInfo.streamName.toByteArray()),
-////                redisProperties.stream.keCategoryInfo.consumerGroup
-////            )?.subscribe()
-//            redisConnectionFactory.reactiveConnection.streamCommands().xGroupCreate(
-//                ByteBuffer.wrap(redisProperties.stream.payment.streamName.toByteArray()),
-//                redisProperties.stream.payment.consumerGroup,
-//                ReadOffset.from("0-0"),
-//                true
-//            ).subscribe()
-//        } catch (e: RedisSystemException) {
-//            log.warn(e) { "Failed to create consumer group: ${redisProperties.stream.payment.consumerGroup}" }
-//        }
-//        return StreamReceiver.create(redisConnectionFactory, options)
-//    }
-
-
     private inline fun <reified T> redisJsonSerializer(
         valueClass: Class<T>
     ): RedisSerializationContext.SerializationPair<Any> {
@@ -227,20 +134,6 @@ class RedisConfig(
                 } else null
             }
 
-        })
-    }
-
-    private fun protobufSerializer(deserializer: (ByteArray) -> Message): RedisSerializationContext.SerializationPair<Message> {
-        return fromSerializer(object : RedisSerializer<Message> {
-            override fun serialize(t: Message?): ByteArray {
-                return t!!.toByteArray()
-            }
-
-            override fun deserialize(bytes: ByteArray?): Message? {
-                return if (bytes != null) {
-                    deserializer.invoke(bytes)
-                } else null
-            }
         })
     }
 
