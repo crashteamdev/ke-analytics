@@ -1,10 +1,9 @@
 package dev.crashteam.keanalytics.config
 
 import dev.crashteam.keanalytics.config.properties.KazanExpressProperties
+import dev.crashteam.keanalytics.job.AggregateStatsJob
 import dev.crashteam.keanalytics.job.GenerateReportMasterJob
 import dev.crashteam.keanalytics.job.ReportCleanUpJob
-import dev.crashteam.keanalytics.job.*
-import dev.crashteam.keanalytics.stream.scheduler.PendingMessageScheduler
 import org.quartz.*
 import org.quartz.impl.JobDetailImpl
 import org.springframework.beans.factory.annotation.Autowired
@@ -34,10 +33,6 @@ class JobConfiguration(
         schedulerFactoryBean.addJob(reportGenerateMasterJob(), true, true)
         if (!schedulerFactoryBean.checkExists(TriggerKey(REPORT_GENERATE_MASTER_JOB, REPORT_GENERATE_MASTER_GROUP))) {
             schedulerFactoryBean.scheduleJob(triggerReportGenerateMasterJob())
-        }
-        schedulerFactoryBean.addJob(pendingMessageJob(), true, true)
-        if (!schedulerFactoryBean.checkExists(TriggerKey(PENDING_MESSAGE_JOB, PENDING_MESSAGE_GROUP))) {
-            schedulerFactoryBean.scheduleJob(triggerPendingMessageJob())
         }
         schedulerFactoryBean.addJob(aggregateStatsJob(), true, true)
         if (!schedulerFactoryBean.checkExists(TriggerKey(AGGREGATE_STATS_JOB, AGGREGATE_STATS_JOB_GROUP))) {
@@ -94,23 +89,6 @@ class JobConfiguration(
             .build()
     }
 
-    private fun pendingMessageJob(): JobDetailImpl {
-        val jobDetail = JobDetailImpl()
-        jobDetail.key = JobKey(PENDING_MESSAGE_JOB, PENDING_MESSAGE_GROUP)
-        jobDetail.jobClass = PendingMessageScheduler::class.java
-
-        return jobDetail
-    }
-
-    private fun triggerPendingMessageJob(): CronTrigger {
-        return TriggerBuilder.newTrigger()
-            .forJob(pendingMessageJob())
-            .withIdentity(PENDING_MESSAGE_JOB, PENDING_MESSAGE_GROUP)
-            .withSchedule(CronScheduleBuilder.cronSchedule(kazanExpressProperties.pendingMessageCron))
-            .withPriority(Int.MAX_VALUE)
-            .build()
-    }
-
     companion object {
         const val AGGREGATE_STATS_JOB = "aggregateStatsJob"
         const val AGGREGATE_STATS_JOB_GROUP = "aggregateStatsJobGroup"
@@ -118,7 +96,5 @@ class JobConfiguration(
         const val REPORT_CLEANUP_GROUP = "reportCleanupGroup"
         const val REPORT_GENERATE_MASTER_JOB = "reportGenerateMasterJob"
         const val REPORT_GENERATE_MASTER_GROUP = "reportGenerateMasterGroup"
-        const val PENDING_MESSAGE_JOB = "pendingMessageJob"
-        const val PENDING_MESSAGE_GROUP = "pendingMessageGroup"
     }
 }
