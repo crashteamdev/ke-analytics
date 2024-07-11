@@ -9,6 +9,7 @@ data class AwsStreamProperties(
     val accessKey: String,
     val secretKey: String,
     val region: String,
+    val keStream: StreamProperties,
     val paymentStream: StreamProperties,
 )
 

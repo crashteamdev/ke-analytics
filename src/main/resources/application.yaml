@@ -135,6 +135,12 @@ aws-stream:
   accessKey: fake-access-key
   secretKey: fake-secret-key
   region: ru-central-1
+  ke-stream:
+    name: '/ru-central1/b1gtojcphtuae1n9siie/etnvck8jo3kuh0vilc57/ke-stream'
+    maxRecords: 50
+    timeoutInSec: 120
+    failOverTimeMillis: 60000
+    consumerName: ke-analytics-consumer
   payment-stream:
     name: '/ru-central1/b1gtojcphtuae1n9siie/etnvck8jo3kuh0vilc57/payment'
     maxRecords: 50
