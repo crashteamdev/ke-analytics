@@ -68,7 +68,7 @@ class ReportFileService(
         SXSSFWorkbook().use { wb ->
             val styles = stylesGenerator.prepareStyles(wb)
             val sheet: SXSSFSheet = wb.createSheet("ABC отчет")
-            wb.createSheet("marketdb.ru")
+            wb.createSheet("marketdb.pro")
             wb.createSheet("Report range - ${Duration.between(fromTime, toTime).toDays()}")
             val rubleCurrencyCellFormat = rubleCurrencyCellFormat(wb)
             val linkFont: Font = wb.createFont().apply {
@@ -129,7 +129,7 @@ class ReportFileService(
         SXSSFWorkbook().use { wb ->
             val styles = stylesGenerator.prepareStyles(wb)
             val sheet: SXSSFSheet = wb.createSheet("ABC отчет")
-            wb.createSheet("marketdb.ru")
+            wb.createSheet("marketdb.pro")
             wb.createSheet("Report range - ${Duration.between(fromTime, toTime).toDays()}")
             val rubleCurrencyCellFormat = rubleCurrencyCellFormat(wb)
             val linkFont: Font = wb.createFont().apply {

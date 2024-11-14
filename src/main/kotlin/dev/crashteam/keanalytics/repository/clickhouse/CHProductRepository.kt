@@ -329,8 +329,8 @@ class CHProductRepository(
                anyLast(seller_id)                                                                   AS seller_id,
                anyLast(category_id)                                                                 AS latest_category_id,
                groupArray(order_amount)                                                             AS order_graph,
-                  groupArray(available_amount)                                                      AS available_amount_graph,
-                   groupArray(median_price)                                                         AS price_graph,
+               groupArray(available_amount)                                                         AS available_amount_graph,
+               groupArray(median_price)                                                             AS price_graph,
                anyLast(available_amount)                                                            AS available_amounts,
                anyLast(median_price)                                                                AS purchase_price,
                sum(revenue)                                                                         AS sales,
@@ -437,7 +437,8 @@ class CHProductRepository(
                  WHERE product_id = ?
                    AND date BETWEEN ? AND ?
                  GROUP BY product_id, date
-                 ORDER BY date
+                 ORDER BY date WITH FILL FROM toDate(?) TO toDate(?)
+                 INTERPOLATE (product_id, category_id, title)
                  )
         GROUP BY product_id
     """.trimIndent()
@@ -565,7 +566,7 @@ class CHProductRepository(
         return jdbcTemplate.queryForObject(
             GET_PRODUCT_DAILY_ANALYTICS_SQL,
             ProductDailyAnalyticsMapper(),
-            productId, fromDate, toDate, productId, productId, fromDate, toDate,
+            productId, fromDate, toDate, productId, productId, fromDate, toDate, fromDate, toDate
         )
     }
 
