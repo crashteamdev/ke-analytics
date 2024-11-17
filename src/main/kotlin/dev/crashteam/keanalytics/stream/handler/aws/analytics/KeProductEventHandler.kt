@@ -28,7 +28,7 @@ class KeProductEventHandler(
         runBlocking {
             val saveProductTask = async {
                 try {
-                    log.info { "Save ${keProductChanges.size} products (NEW)" }
+                    log.info { "Save ${keProductChanges.size} products" }
                     val products = keProductChanges.map {
                         conversionService.convert(it, ChKeProductConverterResultWrapper::class.java)!!
                     }.flatMap { it.result }
@@ -48,6 +48,7 @@ class KeProductEventHandler(
                             it.product.seller.sellerTitle,
                         )
                     }.toSet()
+                    log.info { "Save ${sellerDetailDocuments.size} sellers" }
                     sellerRepository.saveBatch(sellerDetailDocuments)
                 } catch (e: Exception) {
                     log.error(e) { "Exception during save seller info" }
