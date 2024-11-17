@@ -10,12 +10,18 @@ import org.springframework.stereotype.Component
 @Component
 class KeEventStreamAsyncLoop(
     private var paymentStreamWorker: Worker,
+    private var keStreamWorker: Worker,
     private val applicationContext: ApplicationContext,
 ) {
 
     @Async
     fun startPaymentStreamLoop() {
         paymentStreamWorker.run()
+    }
+
+    @Async
+    fun startTimeDataStreamLoop() {
+        keStreamWorker.run()
     }
 
     @EventListener

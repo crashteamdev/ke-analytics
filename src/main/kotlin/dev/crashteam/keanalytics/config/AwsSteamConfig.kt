@@ -31,6 +31,7 @@ class AwsSteamConfig(
     private lateinit var appName: String
 
     @Bean
+    @Scope(value = "prototype")
     fun keStreamWorker(): Worker {
         val awsCredentials = BasicAWSCredentials(awsStreamProperties.accessKey, awsStreamProperties.secretKey)
         val consumerConfig = KinesisClientLibConfiguration(
