@@ -54,9 +54,10 @@ class KeProductItemToChProductConverter :
 
     private fun categoryToPath(category: KeProductChange.KeProductCategory): List<Long> {
         val paths = mutableListOf<Long>()
-        var nextCategory = category
+        var nextCategory: KeProductChange.KeProductCategory? = category
         while (nextCategory != null) {
             paths.add(category.id)
+            if (!nextCategory.hasParent()) break
             nextCategory = nextCategory.parent
         }
         return paths.toList()
