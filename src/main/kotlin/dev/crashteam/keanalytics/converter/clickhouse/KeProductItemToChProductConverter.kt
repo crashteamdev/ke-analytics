@@ -27,7 +27,9 @@ class KeProductItemToChProductConverter :
                 totalOrdersAmount = productChange.orders,
                 totalAvailableAmount = productChange.totalAvailableAmount,
                 availableAmount = sku.availableAmount,
-                fullPrice = sku.fullPrice?.toBigDecimal()?.movePointRight(2)?.toLong(),
+                fullPrice = if (sku.fullPrice.isNotEmpty()) {
+                    sku.fullPrice?.toBigDecimal()?.movePointRight(2)?.toLong()
+                } else null,
                 purchasePrice = sku.purchasePrice.toBigDecimal().movePointRight(2).toLong(),
                 attributes = productChange.attributesList,
                 tags = productChange.tagsList,
