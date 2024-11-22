@@ -1,65 +1,65 @@
 package dev.crashteam.keanalytics.converter.clickhouse
 
+import dev.crashteam.ke.scrapper.data.v1.KeProductChange
 import dev.crashteam.keanalytics.converter.DataConverter
+import dev.crashteam.keanalytics.extensions.toLocalDateTime
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChKazanExpressCharacteristic
 import dev.crashteam.keanalytics.repository.clickhouse.model.ChKeProduct
-import dev.crashteam.keanalytics.stream.model.KeProductCategoryStreamRecord
-import dev.crashteam.keanalytics.stream.model.KeProductItemStreamRecord
+import dev.crashteam.keanalytics.stream.handler.aws.model.KeProductWrapper
 import org.springframework.stereotype.Component
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
 import java.util.stream.Collectors
 
 @Component
 class KeProductItemToChProductConverter :
-    DataConverter<KeProductItemStreamRecord, ChKeProductConverterResultWrapper> {
+    DataConverter<KeProductWrapper, ChKeProductConverterResultWrapper> {
 
-    override fun convert(source: KeProductItemStreamRecord): ChKeProductConverterResultWrapper {
-        return ChKeProductConverterResultWrapper(source.skuList.map { sku ->
-            val fetchTime =
-                LocalDateTime.ofInstant(Instant.ofEpochMilli(source.time), ZoneId.of("UTC"))
+    override fun convert(source: KeProductWrapper): ChKeProductConverterResultWrapper {
+        val productChange = source.product
+        return ChKeProductConverterResultWrapper(productChange.skusList.map { sku ->
             ChKeProduct(
-                fetchTime = fetchTime,
-                productId = source.productId,
-                skuId = sku.skuId,
-                title = source.title,
-                categoryPaths = categoryToPath(source.category),
-                rating = source.rating.toBigDecimal(),
-                reviewsAmount = source.reviewsAmount.toInt(),
-                totalOrdersAmount = source.orders,
-                totalAvailableAmount = source.totalAvailableAmount,
+                fetchTime = source.eventTime.toLocalDateTime(),
+                productId = productChange.productId.toLong(),
+                skuId = sku.skuId.toLong(),
+                title = productChange.title,
+                categoryPaths = categoryToPath(productChange.category),
+                rating = productChange.rating.toBigDecimal(),
+                reviewsAmount = productChange.reviewsAmount.toInt(),
+                totalOrdersAmount = productChange.orders,
+                totalAvailableAmount = productChange.totalAvailableAmount,
                 availableAmount = sku.availableAmount,
-                fullPrice = sku.fullPrice?.toBigDecimal()?.movePointRight(2)?.toLong(),
+                fullPrice = if (sku.fullPrice.isNotEmpty()) {
+                    sku.fullPrice?.toBigDecimal()?.movePointRight(2)?.toLong()
+                } else null,
                 purchasePrice = sku.purchasePrice.toBigDecimal().movePointRight(2).toLong(),
-                attributes = source.attributes,
-                tags = source.tags,
+                attributes = productChange.attributesList,
+                tags = productChange.tagsList,
                 photoKey = sku.photoKey,
-                characteristics = sku.characteristics.map {
+                characteristics = sku.characteristicsList.map {
                     ChKazanExpressCharacteristic(it.type, it.title)
                 },
-                sellerId = source.seller.id,
-                sellerAccountId = source.seller.accountId,
-                sellerTitle = source.seller.sellerTitle,
-                sellerLink = source.seller.sellerLink,
-                sellerRegistrationDate = source.seller.registrationDate,
-                sellerRating = source.seller.rating.toBigDecimal(),
-                sellerReviewsCount = source.seller.reviews.toInt(),
-                sellerOrders = source.seller.orders,
-                sellerContacts = source.seller.contacts.stream()
+                sellerId = productChange.seller.id,
+                sellerAccountId = productChange.seller.accountId,
+                sellerTitle = productChange.seller.sellerTitle,
+                sellerLink = productChange.seller.sellerLink,
+                sellerRegistrationDate = productChange.seller.registrationDate.seconds,
+                sellerRating = productChange.seller.rating.toBigDecimal(),
+                sellerReviewsCount = productChange.seller.reviews.toInt(),
+                sellerOrders = productChange.seller.orders,
+                sellerContacts = productChange.seller.contactsList.stream()
                     .collect(Collectors.toMap({ it.type }, { it.value })),
-                isEco = source.isEco,
-                adultCategory = source.isAdult,
+                isEco = productChange.isEco,
+                adultCategory = productChange.isAdult,
             )
         })
 
     }
 
-    private fun categoryToPath(category: KeProductCategoryStreamRecord): List<Long> {
+    private fun categoryToPath(category: KeProductChange.KeProductCategory): List<Long> {
         val paths = mutableListOf<Long>()
-        var nextCategory: KeProductCategoryStreamRecord? = category
+        var nextCategory: KeProductChange.KeProductCategory? = category
         while (nextCategory != null) {
             paths.add(category.id)
+            if (!nextCategory.hasParent()) break
             nextCategory = nextCategory.parent
         }
         return paths.toList()

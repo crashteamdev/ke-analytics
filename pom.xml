@@ -238,6 +238,12 @@
             <artifactId>analytics-proto</artifactId>
             <version>0.0.17</version>
         </dependency>
+        <dependency>
+            <groupId>dev.crashteam</groupId>
+            <artifactId>ke-scrapper-proto</artifactId>
+            <version>0.0.3</version>
+        </dependency>
+
 
         <!-- Test -->
         <dependency>

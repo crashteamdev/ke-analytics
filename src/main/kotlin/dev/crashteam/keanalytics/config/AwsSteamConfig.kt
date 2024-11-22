@@ -11,6 +11,7 @@ import com.amazonaws.services.kinesis.clientlibrary.lib.worker.SimpleRecordsFetc
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker
 import com.amazonaws.services.kinesis.metrics.impl.NullMetricsFactory
 import dev.crashteam.keanalytics.config.properties.AwsStreamProperties
+import dev.crashteam.keanalytics.stream.listener.aws.analytics.KeEventStreamProcessorFactory
 import dev.crashteam.keanalytics.stream.listener.aws.payment.KePaymentEventStreamProcessorFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -22,11 +23,56 @@ import java.util.*
 @Configuration
 class AwsSteamConfig(
     private val awsStreamProperties: AwsStreamProperties,
+    private val keEventStreamProcessorFactory: KeEventStreamProcessorFactory,
     private val kePaymentEventStreamProcessorFactory: KePaymentEventStreamProcessorFactory,
 ) {
 
     @Value("\${spring.application.name}")
     private lateinit var appName: String
+
+    @Bean
+    fun keStreamWorker(): Worker {
+        val awsCredentials = BasicAWSCredentials(awsStreamProperties.accessKey, awsStreamProperties.secretKey)
+        val consumerConfig = KinesisClientLibConfiguration(
+            "$appName-time-data",
+            awsStreamProperties.keStream.name,
+            awsStreamProperties.kinesisEndpoint,
+            awsStreamProperties.dinamoDbEndpoint,
+            InitialPositionInStream.LATEST,
+            AWSStaticCredentialsProvider(awsCredentials),
+            AWSStaticCredentialsProvider(awsCredentials),
+            AWSStaticCredentialsProvider(awsCredentials),
+            awsStreamProperties.keStream.failOverTimeMillis,
+            "${awsStreamProperties.keStream.consumerName}-${UUID.randomUUID()}",
+            awsStreamProperties.keStream.maxRecords,
+            DEFAULT_IDLETIME_BETWEEN_READS_MILLIS,
+            DEFAULT_DONT_CALL_PROCESS_RECORDS_FOR_EMPTY_RECORD_LIST,
+            DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS,
+            DEFAULT_SHARD_SYNC_INTERVAL_MILLIS,
+            DEFAULT_CLEANUP_LEASES_UPON_SHARDS_COMPLETION,
+            ClientConfiguration(),
+            ClientConfiguration(),
+            ClientConfiguration(),
+            1000L,
+            DEFAULT_METRICS_BUFFER_TIME_MILLIS,
+            DEFAULT_METRICS_MAX_QUEUE_SIZE,
+            DEFAULT_VALIDATE_SEQUENCE_NUMBER_BEFORE_CHECKPOINTING,
+            awsStreamProperties.region,
+            DEFAULT_SHUTDOWN_GRACE_MILLIS,
+            BillingMode.PAY_PER_REQUEST,
+            SimpleRecordsFetcherFactory(),
+            Duration.ofMinutes(1).toMillis(),
+            Duration.ofMinutes(5).toMillis(),
+            Duration.ofMinutes(30).toMillis(),
+        )
+        consumerConfig.withTimeoutInSeconds(awsStreamProperties.keStream.timeoutInSec)
+
+        return Worker.Builder()
+            .recordProcessorFactory(keEventStreamProcessorFactory)
+            .config(consumerConfig)
+            .metricsFactory(NullMetricsFactory())
+            .build()
+    }
 
     @Bean
     @Scope(value = "prototype")
