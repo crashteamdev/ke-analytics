@@ -10,4 +10,6 @@ interface SellerRepository {
     fun findBySellerLink(sellerLink: String): Sellers?
 
     fun findByAccountId(accountId: Long): List<Sellers>
+
+    fun findAccountIdsBySellerLink(sellerLink: String): List<Long>
 }

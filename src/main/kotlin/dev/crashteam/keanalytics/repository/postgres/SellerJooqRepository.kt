@@ -31,7 +31,11 @@ class SellerJooqRepository(
                     s, s.SELLER_ID, s.ACCOUNT_ID, s.TITLE, s.LINK
                 ).values(
                     seller.sellerId, seller.accountId, seller.title, seller.link
-                ).onConflict().doUpdate().set(s.TITLE, seller.title).set(s.LINK, seller.link)
+                ).onConflict().doUpdate()
+                    .set(s.SELLER_ID, seller.sellerId)
+                    .set(s.ACCOUNT_ID, seller.accountId)
+                    .set(s.LINK, seller.link)
+                    .set(s.TITLE, seller.title)
             },
         ).execute()
     }
@@ -41,6 +45,14 @@ class SellerJooqRepository(
         return dsl.selectFrom(s)
             .where(s.LINK.eq(sellerLink))
             .fetchOneInto(Sellers::class.java)
+    }
+
+    override fun findAccountIdsBySellerLink(sellerLink: String): List<Long> {
+        val s = SELLERS
+        return dsl.select(s.ACCOUNT_ID)
+            .from(s)
+            .where(s.LINK.eq(sellerLink))
+            .fetch(s.ACCOUNT_ID)
     }
 
     override fun findByAccountId(accountId: Long): List<Sellers> {
