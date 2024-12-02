@@ -438,8 +438,9 @@ class CHProductRepository(
                    AND date BETWEEN ? AND ?
                  GROUP BY product_id, date
                  ORDER BY date WITH FILL FROM toDate(?) TO toDate(?)
-                 INTERPOLATE (product_id, category_id, title)
+                 INTERPOLATE (product_id, category_id, title, seller_title, seller_link)
                  )
+        WHERE product_id > 0
         GROUP BY product_id
     """.trimIndent()
 
