@@ -11,7 +11,7 @@ class UserSubscriptionService(
     private val userRepository: dev.crashteam.keanalytics.repository.postgres.UserRepository,
 ) {
 
-    fun giveawayDemoSubscription(userId: String) {
+    fun giveawayDemoSubscription(userId: String, days: Long) {
         val user = userRepository.findByUserId(userId)
         if (user?.subscriptionType != null) {
             throw UserSubscriptionGiveawayException("User $userId already had subscription")
@@ -21,7 +21,7 @@ class UserSubscriptionService(
                 this.userId = userId
                 this.subscriptionCreatedAt = LocalDateTime.now()
                 this.subscriptionType = SubscriptionType.demo
-                this.subscriptionEndAt = this.subscriptionCreatedAt.plusDays(3)
+                this.subscriptionEndAt = this.subscriptionCreatedAt.plusDays(days)
             }
             userRepository.save(newUser)
         } else {
@@ -31,6 +31,27 @@ class UserSubscriptionService(
                 LocalDateTime.now(),
                 LocalDateTime.now().plusDays(3)
             )
+        }
+    }
+
+    fun setUserSubscription(userId: String, subscriptionType: SubscriptionType, days: Long) {
+        val user = userRepository.findByUserId(userId)
+        if (user != null) {
+            val newUser = Users().apply {
+                this.userId = userId
+                this.subscriptionCreatedAt = LocalDateTime.now()
+                this.subscriptionType = subscriptionType
+                this.subscriptionEndAt = this.subscriptionCreatedAt.plusDays(days)
+            }
+            userRepository.save(newUser)
+        } else {
+            userRepository.updateSubscription(
+                userId,
+                subscriptionType,
+                LocalDateTime.now(),
+                LocalDateTime.now().plusDays(3)
+            )
+
         }
     }
 }

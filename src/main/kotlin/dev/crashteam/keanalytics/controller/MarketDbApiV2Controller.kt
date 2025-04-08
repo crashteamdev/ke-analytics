@@ -449,7 +449,7 @@ class MarketDbApiV2Controller(
                     ResponseEntity.status(HttpStatus.FORBIDDEN).build<Void>().toMono()
                 } else {
                     try {
-                        userSubscriptionService.giveawayDemoSubscription(giveawayUserDemoRequest.userId)
+                        userSubscriptionService.giveawayDemoSubscription(giveawayUserDemoRequest.userId, 3)
                         ResponseEntity.ok().build<Void>().toMono()
                     } catch (e: UserSubscriptionGiveawayException) {
                         ResponseEntity.badRequest().build<Void>().toMono()
