@@ -236,7 +236,7 @@
         <dependency>
             <groupId>dev.crashteam</groupId>
             <artifactId>analytics-proto</artifactId>
-            <version>0.0.17</version>
+            <version>0.0.18</version>
         </dependency>
         <dependency>
             <groupId>dev.crashteam</groupId>
