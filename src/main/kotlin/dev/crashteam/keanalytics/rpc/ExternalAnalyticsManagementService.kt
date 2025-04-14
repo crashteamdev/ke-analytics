@@ -10,14 +10,11 @@ import dev.crashteam.mp.external.analytics.management.GiveSubscriptionResponse
 import io.grpc.stub.StreamObserver
 import mu.KotlinLogging
 import net.devh.boot.grpc.server.service.GrpcService
-import org.springframework.http.ResponseEntity
-import reactor.kotlin.core.publisher.toMono
 
 private val log = KotlinLogging.logger {}
 
 @GrpcService
 class ExternalAnalyticsManagementService(
-    private val userRepository: UserRepository,
     private val userSubscriptionService: UserSubscriptionService,
 ) :
     ExternalCategoryAnalyticsServiceGrpc.ExternalCategoryAnalyticsServiceImplBase() {
@@ -26,15 +23,6 @@ class ExternalAnalyticsManagementService(
         request: GiveSubscriptionRequest,
         responseObserver: StreamObserver<GiveSubscriptionResponse>,
     ) {
-        val user = userRepository.findByUserId(request.userId)
-        if (user == null) {
-            responseObserver.onNext(GiveSubscriptionResponse.newBuilder().apply {
-                this.errorResponse = GiveSubscriptionResponse.ErrorResponse.newBuilder().apply {
-                    this.errorCode = GiveSubscriptionResponse.ErrorResponse.ErrorCode.ERROR_CODE_USER_NOT_FOUND
-                }.build()
-            }.build())
-            return
-        }
         try {
             if (request.subscriptionId == "demo") {
                 userSubscriptionService.giveawayDemoSubscription(request.userId, 3)
