@@ -29,14 +29,14 @@ class UserSubscriptionService(
                 userId,
                 SubscriptionType.demo,
                 LocalDateTime.now(),
-                LocalDateTime.now().plusDays(3)
+                LocalDateTime.now().plusDays(days)
             )
         }
     }
 
     fun setUserSubscription(userId: String, subscriptionType: SubscriptionType, days: Long) {
         val user = userRepository.findByUserId(userId)
-        if (user != null) {
+        if (user == null) {
             val newUser = Users().apply {
                 this.userId = userId
                 this.subscriptionCreatedAt = LocalDateTime.now()
@@ -45,13 +45,18 @@ class UserSubscriptionService(
             }
             userRepository.save(newUser)
         } else {
+            val currentTime = LocalDateTime.now()
+            val endAt = if (user.subscriptionEndAt != null && user.subscriptionEndAt.isAfter(currentTime)) {
+                user.subscriptionEndAt.plusDays(days)
+            } else {
+                currentTime.plusDays(days)
+            }
             userRepository.updateSubscription(
                 userId,
                 subscriptionType,
-                LocalDateTime.now(),
-                LocalDateTime.now().plusDays(3)
+                currentTime,
+                endAt
             )
-
         }
     }
 }
