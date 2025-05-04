@@ -230,6 +230,11 @@
         </dependency>
         <dependency>
             <groupId>dev.crashteam</groupId>
+            <artifactId>openapi-gpt-analytics</artifactId>
+            <version>1.2-176c09a-server</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.crashteam</groupId>
             <artifactId>payment-proto</artifactId>
             <version>0.0.37</version>
         </dependency>
