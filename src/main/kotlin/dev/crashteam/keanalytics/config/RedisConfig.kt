@@ -106,7 +106,7 @@ class RedisConfig(
                 .entryTtl(Duration.ofSeconds(21600))
             configurationMap[EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeValuesWith(redisJsonSerializer(CategoryAnalyticsCacheableWrapper::class.java))
-                .entryTtl(Duration.ofHours(3))
+                .entryTtl(Duration.ofHours(12))
             builder.withInitialCacheConfigurations(configurationMap)
         }
     }
