@@ -180,7 +180,9 @@ class CHCategoryRepository(
         return jdbcTemplate.queryForObject(
             sql,
             CategoryAnalyticsMapper(),
-            categoryId, categoryId,
+            categoryId,
+            categoryId,
+            categoryId,
             fromDate, toDate,
             fromDatePrev, toDatePrev,
             aggTableDate
