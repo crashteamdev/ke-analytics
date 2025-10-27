@@ -51,11 +51,8 @@ class CHCategoryRepository(
                         WHERE date BETWEEN ? AND ?
                             AND category_id IN cats)                                    AS prev_product_seller_count_tuple
             FROM %s
-            WHERE category_id IN
-                  if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
-                     0,
-                     dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
-                     array(?)) AND (date = ?)
+            WHERE category_id IN cats   
+                AND date = ?
         """
         const val CATEGORY_DAILY_ANALYTICS_SQL = """
             SELECT date,
