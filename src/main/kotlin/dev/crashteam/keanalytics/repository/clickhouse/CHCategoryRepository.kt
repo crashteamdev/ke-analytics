@@ -21,6 +21,9 @@ class CHCategoryRepository(
 
     private companion object {
         const val GET_CATEGORIES_ANALYTICS_WITH_PREV_SQL = """
+            WITH
+                dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0) AS dsc,
+                if(length(dsc) > 0, dsc, array(?)) AS cats
             SELECT sum(order_amount)                                               AS order_amount,
                    sum(available_amount)                                           AS available_amount,
                    sum(revenue) / 100                                              AS revenue,
