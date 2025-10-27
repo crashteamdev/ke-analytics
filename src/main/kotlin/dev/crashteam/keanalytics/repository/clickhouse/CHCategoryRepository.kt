@@ -39,77 +39,20 @@ class CHCategoryRepository(
                    if(prev_order_amount > 0, prev_order_amount / prev_product_count, 0.0) AS prev_order_per_product,
                    if(prev_order_amount > 0, prev_order_amount / prev_seller_count, 0.0)  AS prev_order_per_seller,
                    if(prev_order_amount > 0, prev_revenue / prev_product_count, 0.0) AS prev_revenue_per_product,
-                   (SELECT uniq(seller_id), uniq(product_id)
-                    FROM kazanex.ke_product_daily_sales
-                    WHERE date BETWEEN ? AND ?
-                      AND category_id IN
-                          if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
-                             0,
-                             dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
-                             array(?)))                                        AS product_seller_count_tuple,
-                   (SELECT uniq(seller_id), uniq(product_id)
-                    FROM kazanex.ke_product_daily_sales
-                    WHERE date BETWEEN ? AND ?
-                      AND category_id IN
-                          if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
-                             0,
-                             dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
-                             array(?)))                                        AS prev_product_seller_count_tuple
+                   (SELECT uniqCombinedMerge(seller_state), uniqCombinedMerge(product_state)
+                        FROM kazanex.category_daily_uniqs
+                        WHERE date BETWEEN ? AND ?
+                            AND category_id IN cats)                                    AS product_seller_count_tuple,
+                   (SELECT uniqCombinedMerge(seller_state), uniqCombinedMerge(product_state)
+                        FROM kazanex.category_daily_uniqs
+                        WHERE date BETWEEN ? AND ?
+                            AND category_id IN cats)                                    AS prev_product_seller_count_tuple
             FROM %s
             WHERE category_id IN
                   if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
                      0,
                      dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
                      array(?)) AND (date = ?)
-        """
-        const val GET_CATEGORIES_ANALYTICS_SQL = """
-            SELECT sum(final_order_amount)                          AS order_amount,
-                   sum(available_amount)                            AS available_amount,
-                   sum(revenue)                                     AS revenue,
-                   if(order_amount > 0, quantile(median_price), 0)  AS median_price,
-                   if(order_amount > 0, revenue / order_amount, 0)  AS avg_bill,
-                   product_seller_count_tuple.1                     AS seller_count,
-                   product_seller_count_tuple.2                     AS product_count,
-                   order_amount / product_count                     AS order_per_product,
-                   order_amount / seller_count                      AS order_per_seller,
-                   if(order_amount > 0, revenue / product_count, 0) AS revenue_per_product,
-                   (SELECT uniq(seller_id), uniq(product_id)
-                    FROM kazanex.ke_product_daily_sales
-                    WHERE date BETWEEN ? AND ?
-                      AND category_id IN
-                          if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
-                             0,
-                             dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
-                             array(?)))                         AS product_seller_count_tuple
-            FROM (
-                SELECT date,
-                       p.product_id,
-                       maxMerge(p.max_total_order_amount)                                                               AS max_total_order_amount,
-                       minMerge(p.min_total_order_amount)                                                               AS min_total_order_amount,
-                       max_total_order_amount - min_total_order_amount                                                  AS daily_order_amount,
-                       lagInFrame(maxMerge(p.max_total_order_amount))
-                                  over (partition by product_id order by date ROWS BETWEEN 1 PRECEDING AND 1 PRECEDING) AS max_total_order_amount_delta,
-                       multiIf(min_total_order_amount < max_total_order_amount_delta,
-                               daily_order_amount - (max_total_order_amount_delta - min_total_order_amount),
-                               max_total_order_amount_delta - max_total_order_amount >= 0,
-                               daily_order_amount + (max_total_order_amount_delta - max_total_order_amount),
-                               max_total_order_amount_delta > 0 AND min_total_order_amount > max_total_order_amount_delta,
-                               daily_order_amount + (min_total_order_amount - max_total_order_amount_delta),
-                               daily_order_amount)                                                                      AS order_amount_with_gaps,
-                       if(order_amount_with_gaps < 0, 0, order_amount_with_gaps)                                        AS final_order_amount,
-                       median_price * final_order_amount                                                                AS revenue,
-                       minMerge(p.min_available_amount)                                                                 AS available_amount,
-                       quantileMerge(p.median_price)                                                                    AS median_price,
-                       anyLast(seller_id)                                                                               AS seller_id
-                FROM kazanex.ke_product_daily_sales p
-                WHERE date BETWEEN ? AND ?
-                  AND category_id IN
-                      if(length(dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0)) >
-                         0,
-                         dictGetDescendants('kazanex.categories_hierarchical_dictionary', ?, 0),
-                         array(?))
-                GROUP BY product_id, date
-            )
         """
         const val CATEGORY_DAILY_ANALYTICS_SQL = """
             SELECT date,
@@ -234,11 +177,9 @@ class CHCategoryRepository(
         return jdbcTemplate.queryForObject(
             sql,
             CategoryAnalyticsMapper(),
+            categoryId, categoryId,
             fromDate, toDate,
-            categoryId, categoryId, categoryId,
             fromDatePrev, toDatePrev,
-            categoryId, categoryId, categoryId,
-            categoryId, categoryId, categoryId,
             aggTableDate
         )
     }
