@@ -179,7 +179,6 @@ class CHCategoryRepository(
             CategoryAnalyticsMapper(),
             categoryId,
             categoryId,
-            categoryId,
             fromDate, toDate,
             fromDatePrev, toDatePrev,
             aggTableDate
