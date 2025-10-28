@@ -34,6 +34,8 @@ class ClickhouseConfig {
         )
 
         info.setProperty("ssl", clickHouseDbProperties.ssl.toString())
+        info.setProperty("keepAliveTimeout", "0")
+        info.setProperty("max_connection_age", "0")
         return ClickHouseDataSource(clickHouseDbProperties.url, info)
     }
 

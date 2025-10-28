@@ -27,3 +27,5 @@ databaseChangeLog:
       file: db/changelog/db.ch.changelog-1.12.sql
   - include:
       file: db/changelog/db.ch.changelog-1.13.sql
+  - include:
+      file: db/changelog/db.ch.changelog-1.14.sql
