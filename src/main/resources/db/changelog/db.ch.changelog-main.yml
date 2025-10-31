@@ -31,3 +31,5 @@ databaseChangeLog:
       file: db/changelog/db.ch.changelog-1.14.sql
   - include:
       file: db/changelog/db.ch.changelog-1.15.sql
+  - include:
+      file: db/changelog/db.ch.changelog-1.16.sql
