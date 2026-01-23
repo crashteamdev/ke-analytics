@@ -1,0 +1,38 @@
+views {
+  dynamic view payment-flow {
+    title 'Subscription Payment Flow'
+    variant sequence
+
+    customer -> marketdb.space-gateway '1. HTTP POST Create payment' {
+      notes 'User initiates payment creation'
+    }
+    marketdb.space-gateway -> marketdb.charon '2. gRPC CreatePayment' {
+      notes 'Gateway requests payment creation in Charon'
+    }
+    
+    // Response to initiate payment
+    marketdb.space-gateway <- marketdb.charon '3. Payment details'
+    customer <- marketdb.space-gateway '4. Redirect to payment'
+
+    // Async event processing: Payment Created
+    marketdb.charon -> aws-kinesis '5. Emit PaymentCreated event'
+    aws-kinesis -> marketdb.ke-analytics '6. Consume PaymentCreated'
+    marketdb.ke-analytics -> marketdb.ke-analytics '7. Create pending payment record'
+
+    // Async event processing: Status Changed
+    marketdb.charon -> aws-kinesis '8. Emit PaymentStatusChanged'
+    aws-kinesis -> marketdb.ke-analytics '9. Consume PaymentStatusChanged'
+    
+    marketdb.ke-analytics -> marketdb.ke-analytics '10. Update payment status'
+    marketdb.ke-analytics -> marketdb.ke-analytics '11. Activate subscription' {
+      notes 'Only if payment succeeded'
+    }
+
+    include 
+      customer,
+      marketdb.space-gateway,
+      marketdb.charon,
+      aws-kinesis,
+      marketdb.ke-analytics
+  }
+}

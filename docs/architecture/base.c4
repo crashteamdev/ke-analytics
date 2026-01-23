@@ -1,0 +1,34 @@
+specification {
+    element actor {
+        style {
+            shape person
+            color green
+        }
+    }
+    element system
+    element component
+    element third-party {
+        style {
+            color gray
+        }
+    }
+    element service
+    element infra {
+        style { color amber }
+      }
+}
+model {
+    customer = actor 'Customer'
+    mm-web-site = third-party 'Magnit market web site'
+    aws-kinesis = infra 'AWS Kinesis' 'Event stream'
+    marketdb = system 'MarketDB analytics' {
+        component web-personal-account 'UI web site'
+        component chrome-extension 'Magnit market web site chrome extension'
+        service space-gateway 'API Gateway' 'space-gateway'
+
+        web-personal-account -> space-gateway
+
+        chrome-extension -> mm-web-site 'Load magnit market web site'
+        customer -> web-personal-account
+    }
+}

@@ -28,15 +28,12 @@ class CategoryAnalyticsService(
     private val chCategoryRepository: CHCategoryRepository,
     private val conversionService: ConversionService,
 ) {
-
     @Cacheable(
         value = [RedisConfig.EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME],
         key = "{#datePeriod}",
-        unless = "#result == null || #result.categoryAnalytics.isEmpty()"
+        unless = "#result == null || #result.categoryAnalytics.isEmpty()",
     )
-    suspend fun getRootCategoryAnalytics(
-        datePeriod: DatePeriod,
-    ): CategoryAnalyticsCacheableWrapper {
+    suspend fun getRootCategoryAnalytics(datePeriod: DatePeriod): CategoryAnalyticsCacheableWrapper {
         return withContext(Dispatchers.IO) {
             try {
                 log.debug {
@@ -44,15 +41,17 @@ class CategoryAnalyticsService(
                 }
                 val rootCategoryIds = chCategoryRepository.getDescendantCategories(0, 1)
                 log.debug { "Root categories: $rootCategoryIds" }
-                val categoryAnalyticsInfoList = rootCategoryIds?.map { rootCategoryId ->
-                    async {
-                        calculateCategoryAnalytics(rootCategoryId, datePeriod)
-                    }
-                }?.awaitAll()
+                val categoryAnalyticsInfoList =
+                    rootCategoryIds
+                        ?.map { rootCategoryId ->
+                            async {
+                                calculateCategoryAnalytics(rootCategoryId, datePeriod)
+                            }
+                        }?.awaitAll()
                 log.debug {
                     "Finish get root categories analytics (Async)." +
-                            " queryPeriod=$datePeriod" +
-                            " resultSize=${categoryAnalyticsInfoList?.size}"
+                        " queryPeriod=$datePeriod" +
+                        " resultSize=${categoryAnalyticsInfoList?.size}"
                 }
                 if (categoryAnalyticsInfoList == null) {
                     return@withContext CategoryAnalyticsCacheableWrapper(emptyList())
@@ -62,7 +61,7 @@ class CategoryAnalyticsService(
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get root categories analytics." +
-                            " queryPeriod=$datePeriod;"
+                        " queryPeriod=$datePeriod;"
                 }
                 CategoryAnalyticsCacheableWrapper(emptyList())
             }
@@ -72,7 +71,7 @@ class CategoryAnalyticsService(
     @Cacheable(
         value = [RedisConfig.EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME],
         key = "{#categoryId, #datePeriod}",
-        unless = "#result == null || #result.categoryAnalytics.isEmpty()"
+        unless = "#result == null || #result.categoryAnalytics.isEmpty()",
     )
     suspend fun getCategoryAnalytics(
         categoryId: Long,
@@ -82,19 +81,21 @@ class CategoryAnalyticsService(
             try {
                 log.debug {
                     "Get category analytics (Async)." +
-                            " categoryId=$categoryId; queryPeriod=$datePeriod;"
+                        " categoryId=$categoryId; queryPeriod=$datePeriod;"
                 }
                 val childrenCategoryIds = chCategoryRepository.getDescendantCategories(categoryId, 1)
                 log.debug { "Child categories: $childrenCategoryIds" }
-                val categoryAnalyticsInfoList = childrenCategoryIds?.map { categoryId ->
-                    async {
-                        calculateCategoryAnalytics(categoryId, datePeriod)
-                    }
-                }?.awaitAll()
+                val categoryAnalyticsInfoList =
+                    childrenCategoryIds
+                        ?.map { categoryId ->
+                            async {
+                                calculateCategoryAnalytics(categoryId, datePeriod)
+                            }
+                        }?.awaitAll()
                 log.debug {
                     "Finish get category analytics." +
-                            " categoryId=$categoryId; queryPeriod=$datePeriod" +
-                            " resultSize=${categoryAnalyticsInfoList?.size}"
+                        " categoryId=$categoryId; queryPeriod=$datePeriod" +
+                        " resultSize=${categoryAnalyticsInfoList?.size}"
                 }
                 if (categoryAnalyticsInfoList == null) {
                     return@withContext CategoryAnalyticsCacheableWrapper(emptyList())
@@ -104,7 +105,7 @@ class CategoryAnalyticsService(
             } catch (e: Exception) {
                 log.error(e) {
                     "Exception during get categories analytics." +
-                            " categoryId=$categoryId; queryPeriod=$datePeriod;"
+                        " categoryId=$categoryId; queryPeriod=$datePeriod;"
                 }
                 CategoryAnalyticsCacheableWrapper(emptyList())
             }
@@ -114,172 +115,221 @@ class CategoryAnalyticsService(
     fun getCategoryDailyAnalytics(
         categoryId: Long,
         fromTime: LocalDate,
-        toTime: LocalDate
-    ): List<CategoryDailyAnalytics> {
-        return chCategoryRepository.getCategoryDailyAnalytics(categoryId, fromTime, toTime)
+        toTime: LocalDate,
+    ): List<CategoryDailyAnalytics> =
+        chCategoryRepository
+            .getCategoryDailyAnalytics(categoryId, fromTime, toTime)
             .map { categoryDailyAnalytics ->
                 CategoryDailyAnalytics(
                     date = categoryDailyAnalytics.date,
                     revenue = categoryDailyAnalytics.revenue.setScale(2, RoundingMode.HALF_UP),
                     salesCount = categoryDailyAnalytics.orderAmount,
                     availableCount = categoryDailyAnalytics.availableAmount,
-                    averageBill = categoryDailyAnalytics.averageBill.setScale(2, RoundingMode.HALF_UP)
+                    averageBill = categoryDailyAnalytics.averageBill.setScale(2, RoundingMode.HALF_UP),
                 )
             }
-    }
 
     fun getCategoryProductsAnalytics(
         categoryId: Long,
         datePeriod: DatePeriod,
         filter: List<Filter>? = null,
         sort: List<Sort>? = null,
-        page: LimitOffsetPagination
+        page: LimitOffsetPagination,
     ): List<ProductAnalytics> {
-        val filterSql = filter?.let {
-            FilterBy(
-                sqlFilterFields = filter.map {
-                    conversionService.convert(it, SqlFilterField::class.java)!!
-                }
-            )
-        }
-        val categoryProductsAnalytics = chCategoryRepository.getCategoryProductsAnalytics(
-            categoryId = categoryId,
-            queryPeriod = mapDatePeriodToQueryPeriod(datePeriod),
-            filter = filterSql,
-            sort = sort?.let {
-                SortBy(
-                    sortFields = sort.map {
-                        SortField(
-                            fieldName = it.fieldName,
-                            order = it.order.toRepositoryDomain()
-                        )
-                    }
+        val filterSql =
+            filter?.let {
+                FilterBy(
+                    sqlFilterFields =
+                        filter.map {
+                            conversionService.convert(it, SqlFilterField::class.java)!!
+                        },
                 )
-            },
-            page = PageLimitOffset(
-                limit = page.limit.toInt(),
-                offset = page.offset.toInt()
+            }
+        val categoryProductsAnalytics =
+            chCategoryRepository.getCategoryProductsAnalytics(
+                categoryId = categoryId,
+                queryPeriod = mapDatePeriodToQueryPeriod(datePeriod),
+                filter = filterSql,
+                sort =
+                    sort?.let {
+                        SortBy(
+                            sortFields =
+                                sort.map {
+                                    SortField(
+                                        fieldName = it.fieldName,
+                                        order = it.order.toRepositoryDomain(),
+                                    )
+                                },
+                        )
+                    },
+                page =
+                    PageLimitOffset(
+                        limit = page.limit.toInt(),
+                        offset = page.offset.toInt(),
+                    ),
             )
-        )
         val productIds = categoryProductsAnalytics.map { it.productId }.distinct()
         val periodLocalDate = datePeriod.toLocalDates()
         val productsOrderChart =
-            chCategoryRepository.getProductsOrderChart(productIds, periodLocalDate.fromDate, periodLocalDate.toDate)
+            chCategoryRepository
+                .getProductsOrderChart(productIds, periodLocalDate.fromDate, periodLocalDate.toDate)
                 .associate { it.productId to it.orderChart }
         return categoryProductsAnalytics.map {
-            ProductAnalytics.newBuilder().apply {
-                this.productId = it.productId
-                this.name = it.title
-                this.revenue = it.revenue.toMoney()
-                this.price = it.medianPrice.toMoney()
-                this.salesCount = it.orderAmount
-                this.rating = it.rating.setScale(1, RoundingMode.HALF_UP).toDouble()
-                this.reviewsCount = it.reviewsAmount
-                this.availableCount = it.availableAmount
-                this.photoKey = it.photoKey
-                this.addAllSalesChart(productsOrderChart[it.productId])
-            }.build()
+            ProductAnalytics
+                .newBuilder()
+                .apply {
+                    this.productId = it.productId
+                    this.name = it.title
+                    this.revenue = it.revenue.toMoney()
+                    this.price = it.medianPrice.toMoney()
+                    this.salesCount = it.orderAmount
+                    this.rating = it.rating.setScale(1, RoundingMode.HALF_UP).toDouble()
+                    this.reviewsCount = it.reviewsAmount
+                    this.availableCount = it.availableAmount
+                    this.photoKey = it.photoKey
+                    this.addAllSalesChart(productsOrderChart[it.productId])
+                }.build()
         }
     }
 
-    fun getCategoryInfo(categoryId: Long): ChCategoryHierarchy? {
-        return chCategoryRepository.getCategoryHierarchy(categoryId)
-    }
+    fun getCategoryInfo(categoryId: Long): ChCategoryHierarchy? = chCategoryRepository.getCategoryHierarchy(categoryId)
+
+    @Cacheable(
+        value = [RedisConfig.TRENDING_CATEGORY_PRODUCTS_CACHE_NAME],
+        key = "{#categoryId}",
+        unless = "#result == null || #result.trendingProducts == null || #result.trendingProducts.isEmpty()",
+    )
+    suspend fun getTrendingCategoryProducts(categoryId: Long): TrendingProductsCacheableWrapper =
+        withContext(Dispatchers.IO) {
+            TrendingProductsCacheableWrapper(
+                chCategoryRepository.getTrendingCategoryProducts(
+                    categoryId = categoryId,
+                    windowDays = 14,
+                    lastDays = 4,
+                    minTotalSales = 50,
+                    minUpliftSales = 1.25,
+                    minUpliftShare = 1.15,
+                    minCorrAny = 0.30,
+                    minUpDaysAny = 8,
+                ),
+            )
+        }
 
     private suspend fun calculateCategoryAnalytics(
         categoryId: Long,
         datePeriod: DatePeriod,
-    ): CategoryAnalyticsInfo = coroutineScope {
-        log.debug { "Calculate category analytics queryPeriod=$datePeriod" }
-        val categoryAnalyticsTask = async {
-            chCategoryRepository.getCategoryAnalyticsWithPrev(
-                categoryId = categoryId,
-                queryPeriod = mapDatePeriodToQueryPeriod(datePeriod)
+    ): CategoryAnalyticsInfo =
+        coroutineScope {
+            log.debug { "Calculate category analytics queryPeriod=$datePeriod" }
+            val categoryAnalyticsTask =
+                async {
+                    chCategoryRepository.getCategoryAnalyticsWithPrev(
+                        categoryId = categoryId,
+                        queryPeriod = mapDatePeriodToQueryPeriod(datePeriod),
+                    )
+                }
+            val categoryHierarchyTask =
+                async {
+                    chCategoryRepository.getCategoryHierarchy(categoryId)!!
+                }
+            val chCategoryAnalyticsPair = categoryAnalyticsTask.await()!!
+            val chCategoryHierarchy = categoryHierarchyTask.await()
+
+            CategoryAnalyticsInfo(
+                category =
+                    Category(
+                        categoryId = categoryId,
+                        name = chCategoryHierarchy.name,
+                        parentId = chCategoryHierarchy.parentId,
+                        childrenIds = chCategoryHierarchy.childrenIds,
+                    ),
+                analytics = mapCategoryAnalytics(chCategoryAnalyticsPair),
+                analyticsPrevPeriod = mapPrevCategoryAnalytics(chCategoryAnalyticsPair),
+                analyticsDifference = mapCategoryAnalyticsDifference(chCategoryAnalyticsPair),
             )
         }
-        val categoryHierarchyTask = async {
-            chCategoryRepository.getCategoryHierarchy(categoryId)!!
-        }
-        val chCategoryAnalyticsPair = categoryAnalyticsTask.await()!!
-        val chCategoryHierarchy = categoryHierarchyTask.await()
-
-        CategoryAnalyticsInfo(
-            category = Category(
-                categoryId = categoryId,
-                name = chCategoryHierarchy.name,
-                parentId = chCategoryHierarchy.parentId,
-                childrenIds = chCategoryHierarchy.childrenIds
-            ),
-            analytics = mapCategoryAnalytics(chCategoryAnalyticsPair),
-            analyticsPrevPeriod = mapPrevCategoryAnalytics(chCategoryAnalyticsPair),
-            analyticsDifference = mapCategoryAnalyticsDifference(chCategoryAnalyticsPair),
-        )
-    }
 
     fun sortCategoryAnalytics(
         categoryAnalytics: List<CategoryAnalyticsInfo>,
-        sortBy: SortBy
+        sortBy: SortBy,
     ): List<CategoryAnalyticsInfo> {
-        val comparators = sortBy.sortFields.map { sortField ->
-            when (sortField.fieldName) {
-                "order_amount" -> compareBy<CategoryAnalyticsInfo> { it.analytics.salesCount }
-                "revenue" -> compareBy { it.analytics.revenue }
-                "average_bill" -> compareBy { it.analytics.averageBill }
-                "seller_count" -> compareBy { it.analytics.sellerCount }
-                "product_count" -> compareBy { it.analytics.productCount }
-                "order_per_product" -> compareBy { it.analytics.tsts }
-                "order_per_seller" -> compareBy { it.analytics.tstc }
-                "revenue_per_product" -> compareBy { it.analytics.revenuePerProduct }
-                else -> throw IllegalArgumentException("Unknown field name: ${sortField.fieldName}")
-            }.let { comparator ->
-                if (sortField.order == SortOrder.DESC) comparator.reversed() else comparator
+        val comparators =
+            sortBy.sortFields.map { sortField ->
+                when (sortField.fieldName) {
+                    "order_amount" -> compareBy<CategoryAnalyticsInfo> { it.analytics.salesCount }
+                    "revenue" -> compareBy { it.analytics.revenue }
+                    "average_bill" -> compareBy { it.analytics.averageBill }
+                    "seller_count" -> compareBy { it.analytics.sellerCount }
+                    "product_count" -> compareBy { it.analytics.productCount }
+                    "order_per_product" -> compareBy { it.analytics.tsts }
+                    "order_per_seller" -> compareBy { it.analytics.tstc }
+                    "revenue_per_product" -> compareBy { it.analytics.revenuePerProduct }
+                    else -> throw IllegalArgumentException("Unknown field name: ${sortField.fieldName}")
+                }.let { comparator ->
+                    if (sortField.order == SortOrder.DESC) comparator.reversed() else comparator
+                }
             }
-        }
 
         return categoryAnalytics.sortedWith(comparators.reduce { acc, comparator -> acc.then(comparator) })
     }
 
-    private fun mapCategoryAnalyticsDifference(
-        categoryAnalytics: ChCategoryAnalyticsPair
-    ): CategoryAnalyticsDifference {
-        return CategoryAnalyticsDifference(
-            revenuePercentage = MathUtils.percentageDifference(
-                categoryAnalytics.prevRevenue,
-                categoryAnalytics.revenue
-            ).setScale(1, RoundingMode.DOWN),
-            revenuePerProductPercentage = MathUtils.percentageDifference(
-                categoryAnalytics.prevRevenuePerProduct,
-                categoryAnalytics.revenuePerProduct
-            ).setScale(1, RoundingMode.DOWN),
-            salesCountPercentage = MathUtils.percentageDifference(
-                categoryAnalytics.prevOrderAmount,
-                categoryAnalytics.orderAmount
-            ).toBigDecimal().setScale(1, RoundingMode.DOWN),
-            productCountPercentage = MathUtils.percentageDifference(
-                categoryAnalytics.prevProductCount,
-                categoryAnalytics.productCount
-            ).toBigDecimal().setScale(1, RoundingMode.DOWN),
-            sellerCountPercentage = MathUtils.percentageDifference(
-                categoryAnalytics.prevSellerCount,
-                categoryAnalytics.sellerCount
-            ).toBigDecimal().setScale(1, RoundingMode.DOWN),
-            averageBillPercentage = MathUtils.percentageDifference(
-                categoryAnalytics.prevAvgBill,
-                categoryAnalytics.avgBill
-            ).setScale(1, RoundingMode.DOWN),
-            tstcPercentage = MathUtils.percentageDifference(
-                categoryAnalytics.prevOrderPerSeller,
-                categoryAnalytics.orderPerSeller
-            ).setScale(1, RoundingMode.DOWN),
-            tstsPercentage = MathUtils.percentageDifference(
-                categoryAnalytics.prevOrderPerProduct,
-                categoryAnalytics.orderPerProduct
-            ).setScale(1, RoundingMode.DOWN)
+    private fun mapCategoryAnalyticsDifference(categoryAnalytics: ChCategoryAnalyticsPair): CategoryAnalyticsDifference =
+        CategoryAnalyticsDifference(
+            revenuePercentage =
+                MathUtils
+                    .percentageDifference(
+                        categoryAnalytics.prevRevenue,
+                        categoryAnalytics.revenue,
+                    ).setScale(1, RoundingMode.DOWN),
+            revenuePerProductPercentage =
+                MathUtils
+                    .percentageDifference(
+                        categoryAnalytics.prevRevenuePerProduct,
+                        categoryAnalytics.revenuePerProduct,
+                    ).setScale(1, RoundingMode.DOWN),
+            salesCountPercentage =
+                MathUtils
+                    .percentageDifference(
+                        categoryAnalytics.prevOrderAmount,
+                        categoryAnalytics.orderAmount,
+                    ).toBigDecimal()
+                    .setScale(1, RoundingMode.DOWN),
+            productCountPercentage =
+                MathUtils
+                    .percentageDifference(
+                        categoryAnalytics.prevProductCount,
+                        categoryAnalytics.productCount,
+                    ).toBigDecimal()
+                    .setScale(1, RoundingMode.DOWN),
+            sellerCountPercentage =
+                MathUtils
+                    .percentageDifference(
+                        categoryAnalytics.prevSellerCount,
+                        categoryAnalytics.sellerCount,
+                    ).toBigDecimal()
+                    .setScale(1, RoundingMode.DOWN),
+            averageBillPercentage =
+                MathUtils
+                    .percentageDifference(
+                        categoryAnalytics.prevAvgBill,
+                        categoryAnalytics.avgBill,
+                    ).setScale(1, RoundingMode.DOWN),
+            tstcPercentage =
+                MathUtils
+                    .percentageDifference(
+                        categoryAnalytics.prevOrderPerSeller,
+                        categoryAnalytics.orderPerSeller,
+                    ).setScale(1, RoundingMode.DOWN),
+            tstsPercentage =
+                MathUtils
+                    .percentageDifference(
+                        categoryAnalytics.prevOrderPerProduct,
+                        categoryAnalytics.orderPerProduct,
+                    ).setScale(1, RoundingMode.DOWN),
         )
-    }
 
-    private fun mapCategoryAnalytics(categoryAnalytics: ChCategoryAnalyticsPair): CategoryAnalytics {
-        return CategoryAnalytics(
+    private fun mapCategoryAnalytics(categoryAnalytics: ChCategoryAnalyticsPair): CategoryAnalytics =
+        CategoryAnalytics(
             revenue = categoryAnalytics.revenue.setScale(2, RoundingMode.HALF_UP),
             revenuePerProduct = categoryAnalytics.revenuePerProduct.setScale(2, RoundingMode.HALF_UP),
             salesCount = categoryAnalytics.orderAmount,
@@ -289,10 +339,9 @@ class CategoryAnalyticsService(
             tsts = categoryAnalytics.orderPerProduct.setScale(2, RoundingMode.HALF_UP),
             tstc = categoryAnalytics.orderPerSeller.setScale(2, RoundingMode.HALF_UP),
         )
-    }
 
-    private fun mapPrevCategoryAnalytics(categoryAnalytics: ChCategoryAnalyticsPair): CategoryAnalytics {
-        return CategoryAnalytics(
+    private fun mapPrevCategoryAnalytics(categoryAnalytics: ChCategoryAnalyticsPair): CategoryAnalytics =
+        CategoryAnalytics(
             revenue = categoryAnalytics.prevRevenue.setScale(2, RoundingMode.HALF_UP),
             revenuePerProduct = categoryAnalytics.prevRevenuePerProduct.setScale(2, RoundingMode.HALF_UP),
             salesCount = categoryAnalytics.prevOrderAmount,
@@ -302,15 +351,13 @@ class CategoryAnalyticsService(
             tsts = categoryAnalytics.prevOrderPerProduct.setScale(2, RoundingMode.HALF_UP),
             tstc = categoryAnalytics.prevOrderPerSeller.setScale(2, RoundingMode.HALF_UP),
         )
-    }
 
-    private fun mapDatePeriodToQueryPeriod(source: DatePeriod): QueryPeriod {
-        return when (source) {
+    private fun mapDatePeriodToQueryPeriod(source: DatePeriod): QueryPeriod =
+        when (source) {
             DatePeriod.DATE_PERIOD_UNSPECIFIED, DatePeriod.UNRECOGNIZED -> QueryPeriod.MONTH
             DatePeriod.DATE_PERIOD_WEEK -> QueryPeriod.WEEK
             DatePeriod.DATE_PERIOD_TWO_WEEK -> QueryPeriod.TWO_WEEK
             DatePeriod.DATE_PERIOD_MONTH -> QueryPeriod.MONTH
             DatePeriod.DATE_PERIOD_TWO_MONTH -> QueryPeriod.TWO_MONTH
         }
-    }
 }
