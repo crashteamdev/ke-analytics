@@ -204,13 +204,12 @@ class CHCategoryRepository(
                     (
                         SELECT
                             product_id,
-                            any(title) AS title,
-                            any(photo_key) AS photo_key,
+                            title,
+                            photo_key,
                             toUInt16(dateDiff('day', start_date, date)) AS day_idx,
                             toFloat64(final_order_amount) AS sales
                         FROM daily_sales
                         WHERE date BETWEEN start_date AND end_date
-                        GROUP BY product_id, day_idx
                     ),
                 category_map AS
                     (
