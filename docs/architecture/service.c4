@@ -1,0 +1,21 @@
+model {
+  extend marketdb {
+
+    ke-analytics = service 'Magnit market analytics' 'ke-analytics'
+    charon = service 'Payment service' 'charon'
+
+    space-gateway -> ke-analytics 'Load analytics' 'GRPC'
+    chrome-extension -> ke-analytics 'Load analytics' 'HTTP'
+
+    space-gateway -> charon 'Create payment' 'GRPC'
+    charon -> aws-kinesis 'Payment created / status changed' 'Kinesis'
+    aws-kinesis -> ke-analytics 'Consume payment events' 'Kinesis'
+  }
+}
+
+views {
+  view marketdb-backends of marketdb {
+    include *
+    include aws-kinesis
+  }
+}

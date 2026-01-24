@@ -11,6 +11,7 @@ import dev.crashteam.keanalytics.repository.clickhouse.model.ChCategoryOverallIn
 import dev.crashteam.keanalytics.repository.redis.ApiKeyUserSessionInfo
 import dev.crashteam.keanalytics.service.model.CategoryAnalyticsCacheableWrapper
 import dev.crashteam.keanalytics.service.model.SellerOverallInfo
+import dev.crashteam.keanalytics.service.model.TrendingProductsCacheableWrapper
 import dev.crashteam.mp.external.analytics.category.GetCategoryAnalyticsResponse
 import mu.KotlinLogging
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer
@@ -39,102 +40,115 @@ class RedisConfig(
     private val objectMapper: ObjectMapper,
     private val redisProperties: RedisProperties,
 ) {
-
     @Bean
-    fun reactiveRedisTemplate(
-        redisConnectionFactory: ReactiveRedisConnectionFactory
-    ): ReactiveRedisTemplate<String, Long> {
+    fun reactiveRedisTemplate(redisConnectionFactory: ReactiveRedisConnectionFactory): ReactiveRedisTemplate<String, Long> {
         val jdkSerializationRedisSerializer = JdkSerializationRedisSerializer()
         val stringRedisSerializer = StringRedisSerializer.UTF_8
         val longToStringSerializer = GenericToStringSerializer(Long::class.java)
         return ReactiveRedisTemplate(
             redisConnectionFactory,
-            RedisSerializationContext.newSerializationContext<String, Long>(jdkSerializationRedisSerializer)
-                .key(stringRedisSerializer).value(longToStringSerializer).build()
+            RedisSerializationContext
+                .newSerializationContext<String, Long>(jdkSerializationRedisSerializer)
+                .key(stringRedisSerializer)
+                .value(longToStringSerializer)
+                .build(),
         )
     }
 
     @Bean
-    fun messageReactiveRedisTemplate(
-        redisConnectionFactory: ReactiveRedisConnectionFactory
-    ): ReactiveRedisTemplate<String, String> {
-        val serializationContext: RedisSerializationContext<String, String> = RedisSerializationContext
-            .newSerializationContext<String, String>(StringRedisSerializer())
-            .key(StringRedisSerializer())
-            .value(GenericToStringSerializer(String::class.java))
-            .build()
-        return ReactiveRedisTemplate(redisConnectionFactory, serializationContext);
+    fun messageReactiveRedisTemplate(redisConnectionFactory: ReactiveRedisConnectionFactory): ReactiveRedisTemplate<String, String> {
+        val serializationContext: RedisSerializationContext<String, String> =
+            RedisSerializationContext
+                .newSerializationContext<String, String>(StringRedisSerializer())
+                .key(StringRedisSerializer())
+                .value(GenericToStringSerializer(String::class.java))
+                .build()
+        return ReactiveRedisTemplate(redisConnectionFactory, serializationContext)
     }
 
     @Bean
     fun apiKeySessionRedisTemplate(
-        redisConnectionFactory: ReactiveRedisConnectionFactory
+        redisConnectionFactory: ReactiveRedisConnectionFactory,
     ): ReactiveRedisTemplate<String, ApiKeyUserSessionInfo> {
         val jdkSerializationRedisSerializer = JdkSerializationRedisSerializer()
         val stringRedisSerializer = StringRedisSerializer.UTF_8
         val jackson2JsonRedisSerializer = Jackson2JsonRedisSerializer(ApiKeyUserSessionInfo::class.java)
         return ReactiveRedisTemplate(
             redisConnectionFactory,
-            RedisSerializationContext.newSerializationContext<String, ApiKeyUserSessionInfo>(
-                jdkSerializationRedisSerializer
-            ).key(stringRedisSerializer).value(jackson2JsonRedisSerializer).build()
+            RedisSerializationContext
+                .newSerializationContext<String, ApiKeyUserSessionInfo>(
+                    jdkSerializationRedisSerializer,
+                ).key(stringRedisSerializer)
+                .value(jackson2JsonRedisSerializer)
+                .build(),
         )
     }
 
     @Bean
-    fun redisCacheManagerBuilderCustomizer(): RedisCacheManagerBuilderCustomizer {
-        return RedisCacheManagerBuilderCustomizer { builder: RedisCacheManagerBuilder ->
+    fun redisCacheManagerBuilderCustomizer(): RedisCacheManagerBuilderCustomizer =
+        RedisCacheManagerBuilderCustomizer { builder: RedisCacheManagerBuilder ->
             val configurationMap: MutableMap<String, RedisCacheConfiguration> = HashMap()
-            configurationMap[KE_CLIENT_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(fromSerializer(object : RedisSerializer<Any> {
-                    override fun serialize(t: Any?): ByteArray {
-                        return objectMapper.writeValueAsBytes(t)
-                    }
+            configurationMap[KE_CLIENT_CACHE_NAME] =
+                RedisCacheConfiguration
+                    .defaultCacheConfig()
+                    .serializeValuesWith(
+                        fromSerializer(
+                            object : RedisSerializer<Any> {
+                                override fun serialize(t: Any?): ByteArray = objectMapper.writeValueAsBytes(t)
 
-                    override fun deserialize(bytes: ByteArray?): Any? {
-                        return if (bytes != null) {
-                            objectMapper.readValue<ProductResponse>(bytes)
-                        } else null
-                    }
-
-                })).entryTtl(Duration.ofSeconds(120))
-            configurationMap[CATEGORY_OVERALL_INFO_CACHE] = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(redisJsonSerializer(ChCategoryOverallInfo::class.java))
-                .entryTtl(Duration.ofSeconds(21600))
-            configurationMap[SELLER_OVERALL_INFO_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(redisJsonSerializer(SellerOverallInfo::class.java))
-                .entryTtl(Duration.ofSeconds(21600))
-            configurationMap[EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME] = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(redisJsonSerializer(CategoryAnalyticsCacheableWrapper::class.java))
-                .entryTtl(Duration.ofHours(12))
+                                override fun deserialize(bytes: ByteArray?): Any? =
+                                    if (bytes != null) {
+                                        objectMapper.readValue<ProductResponse>(bytes)
+                                    } else {
+                                        null
+                                    }
+                            },
+                        ),
+                    ).entryTtl(Duration.ofSeconds(120))
+            configurationMap[CATEGORY_OVERALL_INFO_CACHE] =
+                RedisCacheConfiguration
+                    .defaultCacheConfig()
+                    .serializeValuesWith(redisJsonSerializer(ChCategoryOverallInfo::class.java))
+                    .entryTtl(Duration.ofSeconds(21600))
+            configurationMap[SELLER_OVERALL_INFO_CACHE_NAME] =
+                RedisCacheConfiguration
+                    .defaultCacheConfig()
+                    .serializeValuesWith(redisJsonSerializer(SellerOverallInfo::class.java))
+                    .entryTtl(Duration.ofSeconds(21600))
+            configurationMap[EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME] =
+                RedisCacheConfiguration
+                    .defaultCacheConfig()
+                    .serializeValuesWith(redisJsonSerializer(CategoryAnalyticsCacheableWrapper::class.java))
+                    .entryTtl(Duration.ofHours(12))
+            configurationMap[TRENDING_CATEGORY_PRODUCTS_CACHE_NAME] =
+                RedisCacheConfiguration
+                    .defaultCacheConfig()
+                    .serializeValuesWith(redisJsonSerializer(TrendingProductsCacheableWrapper::class.java))
+                    .entryTtl(Duration.ofHours(12))
             builder.withInitialCacheConfigurations(configurationMap)
         }
-    }
 
     @Bean
     @ConditionalOnProperty(prefix = "spring.redis", value = ["ssl"], havingValue = "true")
-    fun builderCustomizer(): LettuceClientConfigurationBuilderCustomizer {
-        return LettuceClientConfigurationBuilderCustomizer { builder: LettuceClientConfiguration.LettuceClientConfigurationBuilder ->
+    fun builderCustomizer(): LettuceClientConfigurationBuilderCustomizer =
+        LettuceClientConfigurationBuilderCustomizer { builder: LettuceClientConfiguration.LettuceClientConfigurationBuilder ->
             builder.useSsl().disablePeerVerification()
         }
-    }
 
-    private inline fun <reified T> redisJsonSerializer(
-        valueClass: Class<T>
-    ): RedisSerializationContext.SerializationPair<Any> {
+    private inline fun <reified T> redisJsonSerializer(valueClass: Class<T>): RedisSerializationContext.SerializationPair<Any> {
         val objectMapper = jacksonObjectMapper().registerModules(JavaTimeModule())
-        return fromSerializer(object : RedisSerializer<Any> {
-            override fun serialize(t: Any?): ByteArray {
-                return objectMapper.writeValueAsBytes(t)
-            }
+        return fromSerializer(
+            object : RedisSerializer<Any> {
+                override fun serialize(t: Any?): ByteArray = objectMapper.writeValueAsBytes(t)
 
-            override fun deserialize(bytes: ByteArray?): Any? {
-                return if (bytes != null) {
-                    objectMapper.readValue(bytes, valueClass)
-                } else null
-            }
-
-        })
+                override fun deserialize(bytes: ByteArray?): Any? =
+                    if (bytes != null) {
+                        objectMapper.readValue(bytes, valueClass)
+                    } else {
+                        null
+                    }
+            },
+        )
     }
 
     companion object {
@@ -142,5 +156,6 @@ class RedisConfig(
         const val CATEGORY_OVERALL_INFO_CACHE = "ke-category-overall-info"
         const val SELLER_OVERALL_INFO_CACHE_NAME = "ke-seller-overall-info"
         const val EXTERNAL_CATEGORY_ANALYTICS_CACHE_NAME = "mm-external-category-analytics"
+        const val TRENDING_CATEGORY_PRODUCTS_CACHE_NAME = "mm-trending-category-products"
     }
 }
