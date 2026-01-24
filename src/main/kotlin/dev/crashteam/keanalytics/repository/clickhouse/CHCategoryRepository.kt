@@ -226,8 +226,8 @@ class CHCategoryRepository(
                     (
                         SELECT
                             product_id,
-                            any(title) AS title,
-                            any(photo_key) AS photo_key,
+                            title,
+                            photo_key,
                             mapFromArrays(tupleElement(sm, 1), tupleElement(sm, 2)) AS m_sales
                         FROM
                             (
@@ -238,8 +238,7 @@ class CHCategoryRepository(
                                     sumMap([day_idx], [sales]) AS sm
                                 FROM daily_sales_idx
                                 GROUP BY product_id
-                                )
-                        GROUP BY product_id
+                            )
                     ),
                 series AS
                     (
